@@ -561,6 +561,62 @@ kbd {
 .res-earn { color: var(--ink); }
 .res-earn .earn { font-size: 24px; font-weight: 700; color: #d9922a; }
 .res-earn small { color: var(--muted); font-size: 12px; }
+.res-earn small.res-slim { display: block; margin-top: 4px; font-size: 13px; font-weight: 600; color: #c0603a; }
+
+/* ---------- Limit hrania a príklady ---------- */
+.time-pill {
+  position: absolute;
+  top: max(14px, env(safe-area-inset-top));
+  left: 14px;
+  pointer-events: auto;
+  font-weight: 700;
+  font-size: 15px;
+  background: rgba(0, 0, 0, .22);
+  color: #fff;
+  border-radius: 999px;
+  padding: 5px 11px;
+}
+.time-pill.low { background: #ff5f7a; animation: blink 1s infinite alternate; }
+@keyframes blink { to { opacity: .6; } }
+
+#limit { z-index: 30; background: rgba(20, 10, 40, .82); overflow-y: auto; }
+#limit .card { gap: 10px; }
+.limit-big { font-size: 54px; line-height: 1; }
+.limit-text { margin: 0; color: var(--muted); font-size: 15px; }
+.limit-time { font-size: 32px; font-weight: 700; color: var(--accent2); }
+
+.quiz-dots { display: flex; justify-content: center; gap: 8px; }
+.quiz-dots i { width: 14px; height: 14px; border-radius: 50%; background: #e4dcef; }
+.quiz-dots i.cur { background: var(--gold); box-shadow: 0 0 0 2px #e0b400; }
+.quiz-dots i.ok { background: #5cc16a; }
+.quiz-dots i.bad { background: #ff5f7a; }
+.quiz-q { font-size: 44px; font-weight: 700; color: var(--ink); letter-spacing: 1px; }
+.quiz-q .ans {
+  display: inline-block;
+  min-width: 1.7em;
+  border-bottom: 4px solid var(--accent2);
+  color: var(--accent2);
+}
+.quiz-q.ok .ans { color: #2e9e45; border-color: #2e9e45; }
+.quiz-q.bad .ans { color: #e0475b; border-color: #e0475b; }
+.keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.keypad button {
+  font: inherit;
+  font-size: 26px;
+  font-weight: 700;
+  padding: 12px 0;
+  border: 0;
+  border-radius: 16px;
+  background: #efe9f7;
+  color: var(--ink);
+  box-shadow: 0 4px 0 rgba(60, 20, 90, .18);
+  cursor: pointer;
+}
+.keypad button:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(60, 20, 90, .18); }
+.keypad .ok-key { background: var(--accent); color: #fff; }
+.quiz-review { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-weight: 600; }
+.quiz-review li.bad { color: #e0475b; }
+.quiz-review li.ok { color: #2e9e45; }
 
 #toast {
   position: absolute;

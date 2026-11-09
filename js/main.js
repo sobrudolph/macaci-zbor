@@ -76,14 +76,14 @@
   }
 
   // ---------- Váha: prekŕmená mačka priberie ----------
-  const FAT_LOSS_PER_HOUR = 1.5; // pomaly schudne sama
-  const FAT_SONG_LOSS = 8;       // spievanie je pohyb, každá pesnička trochu schudne
-  const FAT_GAIN = 0.8;          // koľko z jedla navyše (nad 100 % sýtosti) ide do váhy
+  // Priberá rýchlo, chudne pomaly a len pohybom v hre (treba viac pesničiek).
+  const FAT_GAIN = 1.5;          // jedlo navyše (nad 100 % sýtosti) × 1.5 ide do váhy
+  const FAT_PER_MOVE = 1;        // za každú prejdenú šírku polovice obrazovky −1 váhy
+  const FAT_SONG_MAX = 8;        // najviac −8 za jednu pesničku
 
   function fatOf(id) {
     const f = store.fat[id];
-    if (!f) return 0;
-    return clampN(f.v - ((Date.now() - f.t) / 3600000) * FAT_LOSS_PER_HOUR, 0, 100);
+    return f ? clampN(f.v, 0, 100) : 0;
   }
   function setFat(id, v) {
     v = clampN(v, 0, 100);
@@ -301,8 +301,8 @@
         m.bonus < 0 ? `Hladná mačka spieva slabšie: −${Math.round(-m.bonus * 100)} % bodov` : 'Nakŕm ju nad 60 % a získaš bonus k bodom'}</div>
       <div class="hrow w"><span>Váha</span><b class="${wt.cls}">${wt.label}</b></div>
       <div class="hbar fat"><i style="width:${Math.max(3, Math.round(fat))}%"></i></div>
-      <div class="hnote">${fat >= 60 ? `Tučná mačka je v hre pomalšia a dá −${Math.round(-wt.bonus * 100)} % bodov. Schudne spievaním a časom.` :
-        fat >= 25 ? 'Ešte trochu a bude tučná! Spievanie pomáha schudnúť.' : 'Keď ju prekŕmiš (nad 100 % sýtosti), priberie.'}</div>`;
+      <div class="hnote">${fat >= 60 ? `Prejedená mačka sa ťažko hýbe a dá −${Math.round(-wt.bonus * 100)} % bodov. Schudne len pohybom v hre – bude to trvať viac pesničiek.` :
+        fat >= 25 ? 'Je ťažšia a pomalšia. Čím viac sa v pesničkách hýbe, tým rýchlejšie schudne.' : 'Keď ju prekŕmiš (nad 100 % sýtosti), rýchlo priberie.'}</div>`;
     const bl = $('#btn-set-l'), br = $('#btn-set-r');
     bl.classList.toggle('on', store.catL === cat.id);
     br.classList.toggle('on', store.catR === cat.id);
@@ -698,6 +698,7 @@
 
   $('#btn-pause').addEventListener('click', doPause);
   game.onPauseKey = () => {
+    if (limitOpen) return;
     if (game.mode === 'play') doPause();
     else if (game.mode === 'paused') doResume();
   };
@@ -709,6 +710,164 @@
   $('#btn-resume').addEventListener('click', doResume);
   $('#btn-restart').addEventListener('click', () => { game.quit(); startSong(current); });
   $('#btn-quit').addEventListener('click', () => { game.quit(); go('menu'); });
+
+  // ---------- Limit: 10 minút zapnutej aplikácie, potom 5 príkladov ----------
+  const LIMIT_MIN = 10;
+  const QUIZ_LEN = 5;
+  if (typeof store.timeLeft !== 'number' || !isFinite(store.timeLeft)) store.timeLeft = LIMIT_MIN * 60;
+  let limitOpen = false;
+  let quiz = null;
+  const rand = n => Math.floor(Math.random() * n);
+  const fmtTime = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+
+  function updateTimePill() {
+    const el = $('#time-left');
+    el.textContent = '⏱ ' + fmtTime(Math.max(0, store.timeLeft));
+    el.classList.toggle('low', store.timeLeft <= 60);
+  }
+
+  // čas beží vždy, keď je aplikácia zapnutá a na obrazovke (aj v menu, obchode…)
+  let tickN = 0;
+  setInterval(() => {
+    if (document.hidden || limitOpen) return;
+    store.timeLeft = Math.max(0, store.timeLeft - 1);
+    updateTimePill();
+    if (store.timeLeft <= 0) openLimit();
+    else if (++tickN % 5 === 0) save();
+  }, 1000);
+
+  function limitCard(name) {
+    for (const n of ['wall', 'quiz', 'done']) $('#limit-' + n).classList.toggle('hidden', n !== name);
+  }
+
+  function openLimit() {
+    if (limitOpen) return;
+    limitOpen = true;
+    if (game.mode === 'play') doPause(); // pesnička počká, po vyriešení príkladov pokračuje
+    save();
+    $('#limit-min').textContent = LIMIT_MIN;
+    limitCard('wall');
+    $('#limit').classList.remove('hidden');
+  }
+
+  /** 5 príkladov: sčítanie a odčítanie do 20 (výsledok 0–20), aspoň 2 z každého druhu. */
+  function makeProblems() {
+    const ops = ['+', '+', '−', '−', Math.random() < 0.5 ? '+' : '−'].sort(() => Math.random() - 0.5);
+    const seen = new Set();
+    return ops.map(op => {
+      let a, b, key;
+      do {
+        if (op === '+') { a = 1 + rand(19); b = 1 + rand(20 - a); } // a + b ≤ 20
+        else { a = 2 + rand(19); b = 1 + rand(a - 1); }             // a − b ≥ 1
+        key = a + op + b;
+      } while (seen.has(key));
+      seen.add(key);
+      return { a, b, op, res: op === '+' ? a + b : a - b, ans: null };
+    });
+  }
+
+  function startQuiz() {
+    quiz = { probs: makeProblems(), i: 0, input: '', busy: false };
+    limitCard('quiz');
+    renderQuiz();
+  }
+
+  function renderQuiz(state) {
+    const p = quiz.probs[quiz.i];
+    $('#quiz-dots').innerHTML = quiz.probs.map((q, i) =>
+      `<i class="${q.ans == null ? (i === quiz.i ? 'cur' : '') : q.ans === q.res ? 'ok' : 'bad'}"></i>`).join('');
+    $('#quiz-label').textContent = `Príklad ${quiz.i + 1} z ${QUIZ_LEN}`;
+    const q = $('#quiz-q');
+    q.className = 'quiz-q' + (state ? ' ' + state : '');
+    q.innerHTML = `${p.a} ${p.op} ${p.b} = <span class="ans">${quiz.input || '?'}</span>`;
+  }
+
+  // klávesnica s veľkými tlačidlami (lepšie pre deti a iPhone ako systémová)
+  const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '⌫', '0', 'OK'];
+  for (const k of KEYS) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = k === 'OK' ? '✓' : k;
+    if (k === 'OK') b.className = 'ok-key';
+    b.setAttribute('aria-label', k === '⌫' ? 'Zmazať' : k === 'OK' ? 'Potvrdiť' : k);
+    b.addEventListener('click', () => { audio.init(); quizKey(k); });
+    $('#keypad').append(b);
+  }
+  window.addEventListener('keydown', e => {
+    if (!limitOpen || !quiz || $('#limit-quiz').classList.contains('hidden')) return;
+    if (/^[0-9]$/.test(e.key)) quizKey(e.key);
+    else if (e.key === 'Backspace') quizKey('⌫');
+    else if (e.key === 'Enter') quizKey('OK');
+    else return;
+    e.preventDefault();
+  });
+
+  function quizKey(k) {
+    if (!quiz || quiz.busy) return;
+    audio.init();
+    if (k === '⌫') { quiz.input = quiz.input.slice(0, -1); audio.blip(); renderQuiz(); return; }
+    if (k !== 'OK') {
+      if (quiz.input.length >= 2) return;
+      quiz.input = quiz.input === '0' ? k : quiz.input + k;
+      audio.blip();
+      renderQuiz();
+      return;
+    }
+    if (!quiz.input) return;
+    const p = quiz.probs[quiz.i];
+    p.ans = Number(quiz.input);
+    const ok = p.ans === p.res;
+    if (ok) audio.preview(chosenCats()[0].voice, 79); else audio.miss(audio.ui);
+    quiz.busy = true;
+    renderQuiz(ok ? 'ok' : 'bad');
+    setTimeout(() => {
+      quiz.busy = false;
+      quiz.i++;
+      quiz.input = '';
+      if (quiz.i < QUIZ_LEN) renderQuiz(); else finishQuiz();
+    }, 700);
+  }
+
+  function finishQuiz() {
+    const good = quiz.probs.filter(p => p.ans === p.res).length;
+    const all = good === QUIZ_LEN;
+    $('#done-icon').textContent = all ? '🎉' : '🙀';
+    $('#done-title').textContent = all ? `Výborne! ${good} z ${QUIZ_LEN}` : `${good} z ${QUIZ_LEN} správne`;
+    $('#done-text').textContent = all
+      ? `Máš ďalších ${LIMIT_MIN} minút.`
+      : `Treba mať všetkých ${QUIZ_LEN} správne. Skús ďalších ${QUIZ_LEN} príkladov.`;
+    const rev = $('#done-review');
+    rev.innerHTML = '';
+    if (!all) {
+      for (const p of quiz.probs) {
+        const li = document.createElement('li');
+        const ok = p.ans === p.res;
+        li.className = ok ? 'ok' : 'bad';
+        li.textContent = ok ? `${p.a} ${p.op} ${p.b} = ${p.res} ✓` : `${p.a} ${p.op} ${p.b} = ${p.ans} ✗  (správne je ${p.res})`;
+        rev.append(li);
+      }
+    }
+    $('#btn-done').textContent = all ? '▶ Hrať ďalej' : `Ďalších ${QUIZ_LEN} príkladov`;
+    $('#btn-done').dataset.ok = all ? '1' : '';
+    limitCard('done');
+    if (all) {
+      store.timeLeft = LIMIT_MIN * 60;
+      save();
+      updateTimePill();
+    }
+  }
+
+  $('#btn-add-limit').addEventListener('click', () => { audio.init(); audio.blip(); startQuiz(); });
+  $('#btn-done').addEventListener('click', () => {
+    audio.blip();
+    if (!$('#btn-done').dataset.ok) { startQuiz(); return; }
+    quiz = null;
+    limitOpen = false;
+    $('#limit').classList.add('hidden');
+  });
+
+  updateTimePill();
+  if (store.timeLeft <= 0) openLimit(); // zatvorenie a otvorenie aplikácie limit neobíde
 
   // ---------- Výsledok ----------
   game.onEnd = r => {
@@ -722,16 +881,22 @@
     const fatPen = cats.reduce((s, c) => s + weightOf(fatOf(c.id)).bonus, 0);
     const earned = Math.max(0, Math.round(r.score * (1 + bonus + fatPen) * (store.relax ? 0.5 : 1)));
     store.coins += earned;
-    for (const c of cats) {
+    // chudnutie: podľa toho, koľko sa mačka v pesničke nachodila
+    const slim = [];
+    cats.forEach((c, i) => {
       setHunger(c.id, hungerOf(c.id) - SONG_COST);
-      setFat(c.id, fatOf(c.id) - FAT_SONG_LOSS);
-    }
+      const before = fatOf(c.id);
+      if (before <= 0) return;
+      const loss = Math.min(FAT_SONG_MAX, ((r.moved && r.moved[i]) || 0) * FAT_PER_MOVE);
+      setFat(c.id, before - loss);
+      slim.push({ name: c.name, before, after: fatOf(c.id) });
+    });
     save();
     syncGame();
-    setTimeout(() => showResult(r, isNew, earned, bonus, fatPen), r.cleared ? 900 : 600);
+    setTimeout(() => showResult(r, isNew, earned, bonus, fatPen, slim), r.cleared ? 900 : 600);
   };
 
-  function showResult(r, isNew, earned, bonus, fatPen) {
+  function showResult(r, isNew, earned, bonus, fatPen, slim = []) {
     if (game.mode !== 'over') return;
     $('#res-title').textContent = r.cleared ? 'Hotovo!' : 'Mačky sú ešte hladné!';
     const stars = $('#res-stars');
@@ -752,6 +917,15 @@
     if (fatPen < -0.001) notes.push(`tučné mačky −${Math.round(-fatPen * 100)} %`);
     if (store.relax) notes.push('relax režim ½');
     $('#res-earn').innerHTML = `<div class="earn">+${price(earned)}</div><small>na nákupy${notes.length ? ' · ' + notes.join(' · ') : ''}</small>`;
+    for (const s of slim) {
+      const d = document.createElement('small');
+      d.className = 'res-slim';
+      const lost = Math.round(s.before) - Math.round(s.after);
+      d.textContent = s.after < 0.5 ? `🏃 ${s.name} úplne schudla!` :
+        lost > 0 ? `🏃 ${s.name} schudla: váha ${Math.round(s.before)} → ${Math.round(s.after)}` :
+          `🐷 ${s.name} sa málo hýbala, váha ${Math.round(s.after)}`;
+      $('#res-earn').append(d);
+    }
     show('result');
   }
 

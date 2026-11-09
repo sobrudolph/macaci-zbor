@@ -152,7 +152,7 @@ class Game {
     this.shake = 0;
     for (const c of this.cats) {
       c.x = c.target = this.laneX(c.side, 0.5);
-      c.hold = null; c.mouth = 0; c.sad = 0; c.squash = 0;
+      c.hold = null; c.mouth = 0; c.sad = 0; c.squash = 0; c.moved = 0;
     }
     if (this.bus) this.audio.killBus(this.bus);
     this.bus = this.audio.newBus();
@@ -203,7 +203,10 @@ class Game {
     const acc = total ? this.caught / total : 0;
     const stars = cleared ? (acc >= 0.95 ? 3 : acc >= 0.8 ? 2 : acc >= 0.5 ? 1 : 0) : 0;
     if (this.onEnd) {
-      this.onEnd({ cleared, score: Math.round(this.score), stars, acc, maxCombo: this.maxCombo, caught: this.caught, total });
+      this.onEnd({
+        cleared, score: Math.round(this.score), stars, acc, maxCombo: this.maxCombo, caught: this.caught, total,
+        moved: this.cats.map(c => c.moved || 0),
+      });
     }
   }
 
@@ -252,13 +255,23 @@ class Game {
       const left = c.side === 0 ? this.keys.KeyA : this.keys.ArrowLeft || this.keys.KeyJ;
       const right = c.side === 0 ? this.keys.KeyD : this.keys.ArrowRight || this.keys.KeyL;
       const dir = (right ? 1 : 0) - (left ? 1 : 0);
-      // tučná mačka (nad 50) sa hýbe pomalšie
+      // prejedená mačka sa hýbe ťažko: od váhy 20 pomalšie, pri 100 má len 40 % rýchlosti
       const look = (this.looks && this.looks[c.side]) || {};
-      const slow = 1 - Math.max(0, (look.fat || 0) - 50) / 100;
+      const fat = look.fat || 0;
+      const slow = 1 - clamp((fat - 20) / 80, 0, 1) * 0.6;
       if (dir) c.target = this.clampX(c.side, c.target + dir * this.half * 4.2 * slow * dt);
       const old = c.x;
       c.x += (c.target - c.x) * Math.min(1, dt * 28 * slow);
       c.vel = dt > 0 ? (c.x - old) / dt : 0;
+      c.moved += Math.abs(c.x - old) / this.half; // prejdená dráha (v šírkach polovice) – z nej mačka chudne
+      // tučná mačka sa pri rýchlom pohybe potí
+      if (fat >= 40 && Math.abs(c.vel) > this.half * 1.2 && Math.random() < dt * 6) {
+        this.particles.push({
+          x: c.x + (Math.random() < 0.5 ? -1 : 1) * this.catSize * 0.3, y: this.catchY - this.catSize * 0.75,
+          vx: (Math.random() - 0.5) * 40, vy: -50, life: 0.7, max: 0.7,
+          kind: 'note', ch: '💦', color: '#7cc6ff', size: this.catSize * 0.2,
+        });
+      }
     }
   }
 

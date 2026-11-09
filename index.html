@@ -27,6 +27,7 @@
     <!-- Hlavné menu -->
     <section id="screen-menu" class="screen">
       <div class="wallet menu-wallet" title="Body na nákupy"></div>
+      <div class="time-pill" id="time-left" title="Zostávajúci čas"></div>
       <div class="menu-top">
         <h1 class="logo">Mačací<span>zbor</span></h1>
         <p class="tagline">Rytmická hra pre dva palce</p>
@@ -128,7 +129,8 @@
           <li>Po 3 chybách hra končí. V <b>Relax režime</b> sa prehrať nedá, ale dostaneš len polovicu bodov.</li>
           <li>Za body z pesničiek nakupuješ v <b>Obchode</b> jedlo, oblečenie, okuliare, obojky, vodítka a pelechy vo veľa farbách.</li>
           <li>Mačky po každej pesničke a časom <b>vyhladnú</b>. Nakŕm ich v Mačkách. Najedená mačka (nad 60 %) dá <b>+10 % bodov</b>, hladná (pod 25 %) o 15 % menej.</li>
-          <li>Pozor na <b>prekŕmenie</b>: keď kŕmiš plnú mačku, priberie. Tučná mačka je v hre pomalšia a dá o 10 % menej bodov. Schudne spievaním a časom.</li>
+          <li>Pozor na <b>prekŕmenie</b>: keď kŕmiš plnú mačku, rýchlo priberie. Prejedená mačka sa ťažko hýbe a tučná dá o 10 % menej bodov. Schudne len pohybom v pesničkách, postupne, za viac hier.</li>
+          <li><b>Limit</b>: aplikácia sa dá mať zapnutú 10 minút (čas vidíš v menu vľavo hore). Potom treba vyriešiť 5 príkladov na sčítanie a odčítanie do 20. Keď sú všetky správne, pribudne ďalších 10 minút.</li>
           <li>Mačku môžeš <b>premenovať</b> ceruzkou ✏️ v jej detaile.</li>
           <li>Na počítači: <kbd>A</kbd> <kbd>D</kbd> ľavá mačka, <kbd>←</kbd> <kbd>→</kbd> pravá mačka. Myš ovláda mačku na strane, kde je kurzor. <kbd>Esc</kbd> = pauza.</li>
         </ul>
@@ -162,6 +164,29 @@
           <button class="btn" id="btn-songs">Pesničky</button>
           <button class="btn" id="btn-menu">Do menu</button>
         </div>
+      </div>
+    </section>
+    <!-- Limit hrania: po 10 minútach treba vyriešiť 5 príkladov -->
+    <section id="limit" class="screen modal hidden" aria-live="polite">
+      <div class="card" id="limit-wall">
+        <div class="limit-big">⏰</div>
+        <h2>Čas vypršal</h2>
+        <div class="limit-time">Limit: <span id="limit-min"></span> minút</div>
+        <p class="limit-text">Aplikácia bola zapnutá 10 minút. Vyrieš 5 príkladov a dostaneš ďalších 10 minút.</p>
+        <button class="btn primary" id="btn-add-limit">➕ Pridať limit</button>
+      </div>
+      <div class="card hidden" id="limit-quiz">
+        <div class="quiz-dots" id="quiz-dots"></div>
+        <p class="limit-text" id="quiz-label"></p>
+        <div class="quiz-q" id="quiz-q"></div>
+        <div class="keypad" id="keypad"></div>
+      </div>
+      <div class="card hidden" id="limit-done">
+        <div class="limit-big" id="done-icon"></div>
+        <h2 id="done-title"></h2>
+        <p class="limit-text" id="done-text"></p>
+        <ul class="quiz-review" id="done-review"></ul>
+        <button class="btn primary" id="btn-done"></button>
       </div>
     </section>
     <div id="toast" role="status"></div>
