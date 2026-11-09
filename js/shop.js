@@ -103,7 +103,7 @@ const SLOTS = [
   { id: 'eyes', name: 'Okuliare', icon: '👓' },
   { id: 'neck', name: 'Krk', icon: '🎀' },
   { id: 'body', name: 'Oblečenie', icon: '👕' },
-  { id: 'back', name: 'Chrbát', icon: '🪽' },
+  { id: 'back', name: 'Chrbát', icon: '🎒' },
   { id: 'leash', name: 'Vodítka', icon: '🦮' },
   { id: 'bed', name: 'Pelechy', icon: '🛏️' },
 ];
