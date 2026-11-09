@@ -14,7 +14,9 @@ Každú mačku ovládaš jedným palcom. Keď pochúťku chytíš, mačka zamňa
   - 5 príkladov na sčítanie a odčítanie do 20,
   - 3× nastaviť ručičkové hodiny na zadaný čas (po 5 minútach, aj popoludňajšie časy ako 20:30).
 
-  Keď je všetko správne, pribudne ďalších 6 minút, inak príde nové kolo rovnakej úlohy. Dĺžka limitu je `LIMIT_MIN` v `js/main.js`.
+  Keď je všetko správne, pribudne ďalších 6 minút, inak príde nové kolo rovnakej úlohy.
+  Pri učení (Diktát, Mačacia škola) sa čas neodpočítava a limit sa nezapne; po vypršaní limitu sa dá tlačidlom
+  „Ísť sa učiť“ učiť ďalej, ostatné časti ostanú zamknuté, kým dieťa nesplní úlohu. Dĺžka limitu je `LIMIT_MIN` v `js/main.js`.
 
   **Pravidlo výberu úloh:** úlohy sa striedajú. Ak v niektorej robí chyby a v inej nie, dáva sa len tá s chybami
   (počíta sa posledných 10 odpovedí z limitu aj z Mačacej školy). Nová úloha sa pridá do `TASK_TYPES` v `js/main.js`

@@ -171,6 +171,8 @@
     if (name === 'cat') { $('#rename').classList.add('hidden'); renderCatDetail(); }
     if (name === 'menu') syncGame();
     show(name);
+    // čas minutý: mimo učenia hneď naskočí limit
+    if (store.timeLeft <= 0 && !OPEN_WHEN_OUT.includes(name)) openLimit();
   }
 
   document.addEventListener('click', e => {
@@ -768,14 +770,20 @@
     el.classList.toggle('low', store.timeLeft <= 60);
   }
 
-  // čas beží vždy, keď je aplikácia zapnutá a na obrazovke (aj v menu, obchode…)
+  // Čas beží, keď je aplikácia zapnutá a na obrazovke (menu, Mačací zbor, obchod, mačky…).
+  // Pri učení (Mačacia škola, Diktát – aj výber mačičky) sa čas neodpočítava a limit sa nezapne.
+  const LEARN_SCREENS = ['school', 'lesson', 'dictation'];
+  // keď je čas minutý, dá sa ísť len na výber hry a do učenia
+  const OPEN_WHEN_OUT = ['games', ...LEARN_SCREENS];
   let tickN = 0;
   setInterval(() => {
     if (document.hidden || limitOpen) return;
-    store.timeLeft = Math.max(0, store.timeLeft - 1);
-    updateTimePill();
-    if (store.timeLeft <= 0) openLimit();
-    else if (++tickN % 5 === 0) save();
+    if (store.timeLeft > 0 && !LEARN_SCREENS.includes(screen)) {
+      store.timeLeft = Math.max(0, store.timeLeft - 1);
+      updateTimePill();
+      if (++tickN % 5 === 0) save();
+    }
+    if (store.timeLeft <= 0 && !OPEN_WHEN_OUT.includes(screen)) openLimit();
   }, 1000);
 
   function limitCard(name) {
@@ -1192,6 +1200,17 @@
   }
 
   $('#btn-add-limit').addEventListener('click', () => { audio.init(); audio.blip(); startTask(); });
+  // učiť sa dá aj bez limitu – ostatné hry ostanú zamknuté, kým nesplní úlohu
+  $('#btn-limit-learn').addEventListener('click', () => {
+    audio.init();
+    audio.blip();
+    if (game.mode !== 'idle') game.quit();
+    quiz = null;
+    clk = null;
+    limitOpen = false;
+    $('#limit').classList.add('hidden');
+    go('games');
+  });
   $('#btn-done').addEventListener('click', () => {
     audio.blip();
     if (!$('#btn-done').dataset.ok) { startTask(); return; } // rovnaký typ úlohy znova

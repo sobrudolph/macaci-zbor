@@ -813,3 +813,6 @@ kbd {
 .dw small { font-size: 11px; color: #8a5a00; font-weight: 600; }
 .dict-right { font-size: 15px; }
 .dict-right span { color: var(--muted); }
+
+.limit-text.small { font-size: 12px; margin-top: -4px; }
+#btn-limit-learn { font-size: 17px; }

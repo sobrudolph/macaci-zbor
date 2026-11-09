@@ -245,7 +245,7 @@
           <li>Za body z pesničiek nakupuješ v <b>Obchode</b> jedlo, oblečenie, okuliare, obojky, vodítka a pelechy vo veľa farbách.</li>
           <li>Mačky po každej pesničke a časom <b>vyhladnú</b>. Nakŕm ich v Mačkách. Najedená mačka (nad 60 %) dá <b>+10 % bodov</b>, hladná (pod 25 %) o 15 % menej.</li>
           <li>Pozor na <b>prekŕmenie</b>: keď kŕmiš plnú mačku, rýchlo priberie. Prejedená mačka sa ťažko hýbe a tučná dá o 10 % menej bodov. Schudne len pohybom v pesničkách, postupne, za viac hier.</li>
-          <li><b>Limit</b>: aplikácia sa dá mať zapnutú 6 minút (čas vidíš v menu vľavo hore). Potom príde úloha: buď 5 príkladov na sčítanie a odčítanie do 20, alebo 3× nastaviť ručičkové hodiny. Úlohy sa striedajú, ale častejšie prídu tie, v ktorých robíš chyby. Keď je všetko správne, pribudne ďalších 6 minút.</li>
+          <li><b>Limit</b>: aplikácia sa dá mať zapnutú 6 minút (čas vidíš v menu vľavo hore). Potom príde úloha: buď 5 príkladov na sčítanie a odčítanie do 20, alebo 3× nastaviť ručičkové hodiny. Úlohy sa striedajú, ale častejšie prídu tie, v ktorých robíš chyby. Keď je všetko správne, pribudne ďalších 6 minút. Pri učení (Diktát, Mačacia škola) sa čas neodpočítava a dá sa učiť aj po vypršaní limitu.</li>
           <li><b>Diktát</b> (tretia hra): mačička pomaly 2× prečíta vetu z 5 slov, ty ju napíšeš a na konci ti ju opraví. Za vetu bez chyby jej stúpne IQ (+3), s chybou IQ nedostane.</li>
           <li><b>Mačacia škola</b> (druhá hra v ponuke Hrať): 10 otázok – príklady a hodiny, vždy 3 možnosti a len jedna je správna. Za každú správnu odpoveď stúpne vybranej mačičke <b>IQ</b> (od 0 do 150).</li>
           <li>Mačku môžeš <b>premenovať</b> ceruzkou ✏️ v jej detaile.</li>
@@ -292,6 +292,8 @@
         <p class="limit-text" id="limit-text"></p>
         <p class="limit-task" id="limit-task"></p>
         <button class="btn primary" id="btn-add-limit">➕ Pridať limit</button>
+        <button class="btn soft" id="btn-limit-learn">📚 Ísť sa učiť (Diktát, Mačacia škola)</button>
+        <p class="limit-text small">Pri učení sa čas neodpočítava.</p>
       </div>
       <div class="card hidden" id="limit-clock">
         <div class="quiz-dots" id="clock-dots"></div>
