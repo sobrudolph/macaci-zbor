@@ -3,7 +3,8 @@
  * Prvouka pre 2. ročník – doplňovačky. Texty sú preformulované vlastnými slovami podľa učiva
  * (Slovensko, kalendár, čas, kostra, svaly, bezpečnosť na ceste, dopravné prostriedky).
  *
- * type 'text':     vety, chýbajúce slovo je v {zložených zátvorkách}; extra = slovo navyše, ktoré nikam nepatrí
+ * type 'text':     vety, chýbajúce slovo je v {zložených zátvorkách}
+ * Slov je vždy presne toľko, koľko je medzier – žiadne slová navyše (chytáky) sa nepridávajú.
  * type 'skeleton': obrázok kostry, k označeným miestam sa priraďujú názvy kostí
  * type 'vehicles': obrázky dopravných prostriedkov, k nim sa priraďujú názvy
  * V jednej úlohe sa slovo nesmie opakovať (každá medzera má iné správne slovo).
@@ -17,7 +18,6 @@ const PRVOUKA = [
       'Ako samostatný štát vzniklo Slovensko 1. januára {1993}.',
       'Štátna {vlajka} a štátny znak sú symboly štátu.',
     ],
-    extra: ['kráľovstvo'],
   },
   {
     id: 'kalendar', title: 'Rok v kalendári', icon: '📅', type: 'text',
@@ -27,7 +27,6 @@ const PRVOUKA = [
       'Rok sa delí na {12} mesiacov.',
       'Rok má štyri ročné {obdobia}.',
     ],
-    extra: ['24'],
   },
   {
     id: 'obdobia', title: 'Mesiace a ročné obdobia', icon: '🍂', type: 'text',
@@ -37,7 +36,6 @@ const PRVOUKA = [
       'Jeseň: september, {október} a november.',
       'Zima: december, január a {február}.',
     ],
-    extra: ['jún'],
   },
   {
     id: 'cas', title: 'Meriame čas', icon: '⏳', type: 'text',
@@ -48,7 +46,6 @@ const PRVOUKA = [
       'Základnou jednotkou času je {hodina}.',
       'Kratšie jednotky času sú minúta a {sekunda}.',
     ],
-    extra: ['kilogram'],
   },
   {
     id: 'kostra-text', title: 'Kostra', icon: '🦴', type: 'text',
@@ -59,7 +56,6 @@ const PRVOUKA = [
       'Kosti rastú spolu s človekom až do {dospelosti}.',
       'Zlomená kosť sa volá {zlomenina} a môže sa zrásť.',
     ],
-    extra: ['svalmi'],
   },
   {
     id: 'kostra-obrazok', title: 'Pomenuj časti kostry', icon: '💀', type: 'skeleton',
@@ -84,7 +80,6 @@ const PRVOUKA = [
       'Chodci aj vodiči musia dodržiavať {pravidlá} na ceste.',
       'Dopravné {značky} ukazujú príkazy, zákazy a informácie.',
     ],
-    extra: ['cestujúci'],
   },
   {
     id: 'doprava-text', title: 'Dopravné prostriedky', icon: '🚗', type: 'text',
@@ -94,7 +89,6 @@ const PRVOUKA = [
       'Po vode sa plaví {loď}.',
       'Vzduchom letí {lietadlo}.',
     ],
-    extra: ['koleso'],
   },
   {
     id: 'doprava-obrazky', title: 'Čím cestujeme?', icon: '✈️', type: 'vehicles',
@@ -105,7 +99,7 @@ const PRVOUKA = [
 // kontrola: v úlohe sa žiadne slovo nesmie opakovať
 for (const ex of PRVOUKA) {
   const words = ex.type === 'text'
-    ? [...ex.items.flatMap(s => [...s.matchAll(/\{([^}]+)\}/g)].map(m => m[1])), ...(ex.extra || [])]
+    ? ex.items.flatMap(s => [...s.matchAll(/\{([^}]+)\}/g)].map(m => m[1]))
     : ex.answers;
   if (new Set(words).size !== words.length) console.warn('Prvouka: opakujúce sa slovo v úlohe', ex.id);
 }

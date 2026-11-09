@@ -1846,12 +1846,11 @@
     pvStop();
     pvCatId = catId;
     const ex = pickExercise();
-    let slots, extra = [];
-    if (ex.type === 'text') {
-      slots = ex.items.flatMap(s => [...s.matchAll(/\{([^}]+)\}/g)].map(m => m[1]));
-      extra = ex.extra || [];
-    } else slots = ex.answers.slice();
-    const words = shuffle([...slots, ...extra]).map((text, id) => ({ id, text }));
+    // presne toľko slov, koľko je medzier – žiadne slová navyše
+    const slots = ex.type === 'text'
+      ? ex.items.flatMap(s => [...s.matchAll(/\{([^}]+)\}/g)].map(m => m[1]))
+      : ex.answers.slice();
+    const words = shuffle(slots.slice()).map((text, id) => ({ id, text }));
     pv = {
       catId, ex, slots, words, place: slots.map(() => null), sel: null, checked: false,
       order: ex.type === 'vehicles' ? shuffle(slots.map((s, k) => k)) : null,
@@ -1862,7 +1861,7 @@
     $('#pv-scroll').scrollTop = 0;
     $('#pv-title').textContent = `${ex.icon} ${ex.title}`;
     $('#pv-ask').textContent = ex.type === 'text'
-      ? 'Chyť slovo a presuň ho do správnej medzery.' + (extra.length ? ' Jedno slovo je navyše!' : '')
+      ? 'Chyť slovo a presuň ho do správnej medzery.'
       : 'Chyť slovo a presuň ho k správnemu obrázku.';
     $('#pv-progress').textContent = `${slots.length} slov`;
     $('#pv-result').classList.add('hidden');
