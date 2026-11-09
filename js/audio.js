@@ -40,6 +40,14 @@ class AudioEngine {
     this.noiseBuf = c.createBuffer(1, len, c.sampleRate);
     const d = this.noiseBuf.getChannelData(0);
     for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+
+    // skreslenie pre rockovú/metalovú gitaru
+    const n = 1024, k = 28;
+    this.distCurve = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const x = (i / (n - 1)) * 2 - 1;
+      this.distCurve[i] = ((1 + k) * x) / (1 + k * Math.abs(x));
+    }
   }
 
   get now() { return this.ctx ? this.ctx.currentTime : 0; }
@@ -141,6 +149,56 @@ class AudioEngine {
     o.start(t); o.stop(t + Math.max(0.08, dur) + 0.02);
   }
 
+  /** Skreslená gitara: power chord (základ, kvinta, oktáva). mute = pridusené krátke "čug". */
+  guitar(t, midi, dur, v, dest, mute) {
+    const c = this.ctx;
+    const sh = c.createWaveShaper();
+    sh.curve = this.distCurve;
+    sh.oversample = '2x';
+    const pre = c.createGain(); pre.gain.value = 0.5;
+    const f = c.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.value = mute ? 1300 : 3200;
+    f.Q.value = 0.8;
+    const g = c.createGain();
+    const len = mute ? Math.min(dur, 0.14) : dur;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(v, t + 0.006);
+    g.gain.setValueAtTime(v * 0.8, t + len * 0.7);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + len + 0.05);
+    pre.connect(sh); sh.connect(f); f.connect(g); g.connect(dest);
+    for (const [iv, det] of [[0, -6], [0, 7], [7, 3], [12, -4]]) {
+      const o = c.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.value = midiToFreq(midi + iv);
+      o.detune.value = det;
+      o.connect(pre);
+      o.start(t); o.stop(t + len + 0.08);
+    }
+  }
+
+  /** 808 basa pre rap: hlboký sínus s krátkym "úderom". */
+  sub(t, midi, dur, v, dest) {
+    const c = this.ctx, o = c.createOscillator(), g = c.createGain();
+    const fr = midiToFreq(midi);
+    o.type = 'sine';
+    o.frequency.setValueAtTime(fr * 2.2, t);
+    o.frequency.exponentialRampToValueAtTime(fr, t + 0.05);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(v, t + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + Math.max(0.2, dur));
+    o.connect(g); g.connect(dest);
+    o.start(t); o.stop(t + Math.max(0.2, dur) + 0.05);
+  }
+
+  clap(t, v, dest) {
+    for (let i = 0; i < 3; i++) this.noise(t + i * 0.011, v * 0.5, dest, 'bandpass', 1300, 1.2, i === 2 ? 0.16 : 0.02);
+  }
+
+  crash(t, v, dest) {
+    this.noise(t, v * 0.32, dest, 'highpass', 4500, 0.4, 1.3);
+  }
+
   /** Prehrá jednu udalosť sprievodu (z buildSong().backing). */
   play(e, t, bus) {
     const d = bus.music;
@@ -157,6 +215,13 @@ class AudioEngine {
         break;
       case 'chord':
         for (const m of e.ms) this.tone(t, m, e.d, 0.09, d, 'triangle', 2400);
+        break;
+      case 'gtr': this.guitar(t, e.m, e.d, 0.16 * v, d, !!e.mute); break;
+      case 'sub': this.sub(t, e.m, e.d, 0.75 * v, d); break;
+      case 'clap': this.clap(t, v, d); break;
+      case 'crash': this.crash(t, v, d); break;
+      case 'keys': // jemné klávesy pre rapový beat
+        for (const m of e.ms) this.tone(t, m + 12, e.d, 0.06, d, 'sine', 3000);
         break;
     }
   }

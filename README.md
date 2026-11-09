@@ -3,10 +3,10 @@
 Rytmická hra pre dva palce. Dve mačky sedia vedľa seba a do rytmu hudby na ne padajú pochúťky.
 Každú mačku ovládaš jedným palcom. Keď pochúťku chytíš, mačka zamňauká tón melódie, takže pesničku vlastne „spievajú“ mačky.
 
-- **29 mačiek, všetky odomknuté a zadarmo.** Nie sú tu reklamy ani nákupy za skutočné peniaze.
-- **14 pesničiek:** pôvodné skladby a melódie, ktoré sú voľné dielo (Hviezdička, Óda na radosť, Pre Elišku, Kánon, Brat Jakub, Zvončeky, Malá nočná hudba, Jar, V jaskyni horského kráľa, Turecký pochod).
+- **29 mačiek, všetky odomknuté a zadarmo.** Nie sú tu reklamy ani nákupy za skutočné peniaze. Každú mačku si môžeš premenovať.
+- **22 pesničiek v 4 obtiažnostiach:** pôvodné skladby (aj rap, rock a metal) a melódie, ktoré sú voľné dielo (Hviezdička, Óda na radosť, Pre Elišku, Kánon, Brat Jakub, Zvončeky, Malá nočná hudba, Jar, V jaskyni horského kráľa, Turecký pochod, Kankán, Na krásnom modrom Dunaji).
 - **Obchod:** za body z pesničiek kupuješ jedlo (granule, konzervy, mlieko, mlsky) a viac ako 50 druhov oblečenia, okuliarov, obojkov, vodítok a pelechov, každý vo veľa farbách.
-- **Starostlivosť:** mačky časom a po pesničkách vyhladnú. Najedené mačky dajú bonus k bodom, hladné menej.
+- **Starostlivosť:** mačky časom a po pesničkách vyhladnú. Najedené mačky dajú bonus k bodom, hladné menej. Prekŕmené mačky priberú: tučná mačka je pomalšia a dá menej bodov, kým spievaním neschudne.
 - Funguje v prehliadači na mobile aj na počítači a nič sa neinštaluje.
 - Grafika aj zvuk sa generujú kódom (Canvas a Web Audio API). Hra nepoužíva žiadne obrázky ani zvukové súbory, takže pri nich nehrozia problémy s licenciami.
 
@@ -88,6 +88,9 @@ G5:2~     držaná nota (svietiaca stopa)
 E5:3>G5   držaná nota, ktorá sa presúva na G5
 |         oddeľovač taktov (len pre prehľadnosť)
 ```
+
+Sprievod sa vyberá cez `style`: `pop`, `soft`, `waltz`, `disco`, `rap`, `rock` alebo `metal`.
+Obtiažnosť (`difficulty`) je 1 až 4.
 
 Mačky sa pri spievaní striedajú po taktoch. Vyšší tón padá viac vpravo, nižší viac vľavo.
 Hra sa stavia z melódie automaticky, nič sa nemusí kresliť ručne.

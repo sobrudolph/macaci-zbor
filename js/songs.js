@@ -66,6 +66,49 @@ function parseChords(src) {
 const bassMidi = root => (36 + root < 40 ? 48 + root : 36 + root);
 const chordMidis = ch => ch.intervals.map(iv => 55 + ((((ch.root + iv - 55) % 12) + 12) % 12));
 
+const gtrMidi = root => 40 + ((root - 4 + 12) % 12); // power chord E2..D#3
+
+/**
+ * Sprievod pre rap (boom bap), rock a metal. Volá sa pre každú dobu (pib = doba v takte).
+ */
+function heavyBeat(out, style, ch, t, pd, pib, bar) {
+  const h = pd / 2, q = pd / 4;
+  const root = ch ? ch.root : null;
+  if (style === 'rap') {
+    out.push({ t, k: 'hat', v: 0.55 }, { t: t + h, k: 'hat', v: 0.32 });
+    if (pib === 3 && bar % 4 === 3) out.push({ t: t + q, k: 'hat', v: 0.3 }, { t: t + 3 * q, k: 'hat', v: 0.3 });
+    if (pib === 0) out.push({ t, k: 'kick' });
+    if (pib === 2) out.push({ t: t + h, k: 'kick', v: 0.85 });
+    if (pib === 1 || pib === 3) out.push({ t, k: 'clap' }, { t, k: 'snare', v: 0.45 });
+    if (root == null) return;
+    if (pib === 0) out.push({ t, k: 'sub', m: 36 + root, d: pd * 1.4 });
+    if (pib === 2) out.push({ t: t + h, k: 'sub', m: 36 + root, d: pd * 0.9 });
+    if (pib === 0 || pib === 2) out.push({ t, k: 'keys', ms: chordMidis(ch), d: pd * 1.6 });
+    return;
+  }
+  if (style === 'rock') {
+    if (pib === 0 && bar % 4 === 0) out.push({ t, k: 'crash', v: 0.8 });
+    out.push({ t, k: 'hat', v: 0.5 }, { t: t + h, k: 'hat', v: 0.3 });
+    if (pib === 0 || pib === 2) out.push({ t, k: 'kick' });
+    if (pib === 2) out.push({ t: t + h, k: 'kick', v: 0.7 });
+    if (pib === 1 || pib === 3) out.push({ t, k: 'snare' });
+    if (root == null) return;
+    out.push({ t, k: 'gtr', m: gtrMidi(root), d: h * 0.9 }, { t: t + h, k: 'gtr', m: gtrMidi(root), d: h * 0.9, mute: true });
+    out.push({ t, k: 'bass', m: bassMidi(root), d: pd * 0.8 });
+    return;
+  }
+  // metal: dvojitý kopák na osminy, crash každé 2 takty, dusené "čug-čug" a údery na 1 a 3
+  if (pib === 0 && bar % 2 === 0) out.push({ t, k: 'crash', v: 0.9 });
+  out.push({ t, k: 'kick', v: 0.9 }, { t: t + h, k: 'kick', v: 0.75 });
+  if (pib === 1 || pib === 3) out.push({ t, k: 'snare' });
+  else out.push({ t, k: 'hat', v: 0.4 });
+  if (root == null) return;
+  const m = gtrMidi(root);
+  if (pib === 0 || pib === 2) out.push({ t, k: 'gtr', m, d: pd * 0.95 });
+  else out.push({ t, k: 'gtr', m, d: q, mute: true }, { t: t + h, k: 'gtr', m, d: q, mute: true }, { t: t + 3 * q, k: 'gtr', m, d: q, mute: true });
+  out.push({ t, k: 'bass', m: bassMidi(root), d: pd * 0.5 }, { t: t + h, k: 'bass', m: bassMidi(root), d: pd * 0.4 });
+}
+
 /** Z definície pesničky vyrobí noty pre hru a sprievod (bicie, basa, akordy). */
 function buildSong(song) {
   const spb = 60 / song.bpm;
@@ -145,6 +188,11 @@ function buildSong(song) {
     const pib = p % ppb;
     const ch = chordAt(beat);
 
+    const bar = Math.floor(p / ppb);
+    if (style === 'rap' || style === 'rock' || style === 'metal') {
+      heavyBeat(backing, style, ch, t, pd, pib, bar);
+      continue;
+    }
     if (style === 'pop') {
       backing.push({ t, k: pib % 2 === 0 ? 'kick' : 'snare' });
       backing.push({ t, k: 'hat', v: 0.6 });
@@ -192,6 +240,13 @@ function buildSong(song) {
     endTime: Math.max(lastNoteTime, endT) + 1.6,
   };
 }
+
+// Kankán (Offenbach) – jedna prechádzka témou, takty po 2 doby
+const KANKAN = `C5:2 | D5:0.5 F5:0.5 E5:0.5 D5:0.5 | G5 G5 | G5:0.5 A5:0.5 E5:0.5 F5:0.5 |
+  D5 D5 | D5:0.5 F5:0.5 E5:0.5 D5:0.5 | C5:0.5 C6:0.5 B5:0.5 A5:0.5 | G5:0.5 F5:0.5 E5:0.5 D5:0.5 |
+  C5:2 | D5:0.5 F5:0.5 E5:0.5 D5:0.5 | G5 G5 | G5:0.5 A5:0.5 E5:0.5 F5:0.5 |
+  D5 D5 | D5:0.5 F5:0.5 E5:0.5 D5:0.5 | C5:0.5 C6:0.5 B5:0.5 A5:0.5 | G5:0.5 D5:0.5 E5:0.5 D5:0.5`;
+const KANKAN_CH = `C | G7 | C | C | G7 | G7 | C | G7 | C | G7 | C | C | G7 | G7 | C | G7`;
 
 const SONGS = [
   {
@@ -437,5 +492,168 @@ const SONGS = [
              G4:0.5 B4:0.5 D5:0.5 E5:0.5 F5:0.5 E5:0.5 D5:0.5 B4:0.5 | F4:0.5 A4:0.5 C5:0.5 D5:0.5 Eb5:0.5 D5:0.5 C5:0.5 A4:0.5 |
              C5 E5:0.5 G5:0.5 C6 G5 | D5:0.5 C5:0.5 B4:0.5 G4:0.5 C5:2~`,
     chords: `C | C | F | C | G | F | C | G | C | C | F | C | G | F | C | C`,
+  },
+
+  // ---------- Rap ----------
+  {
+    id: 'mnaurap',
+    title: 'Mňau-rap',
+    credit: 'Pôvodná skladba · rap',
+    difficulty: 2,
+    bpm: 92,
+    style: 'rap',
+    speed: 1.45,
+    snacks: ['donut', 'candy'],
+    bg: ['#2b2b3a', '#e0a43a'],
+    melody: `A4:0.5 A4:0.5 C5:0.5 A4:0.5 r:0.5 A4:0.5 C5 | C5:0.5 C5:0.5 D5:0.5 C5:0.5 A4:2~ |
+             E5:0.5 E5:0.5 D5:0.5 C5:0.5 r:0.5 C5:0.5 D5 | E5:0.5 D5:0.5 C5:0.5 A4:0.5 G4:2 |
+             A4:0.5 A4:0.5 C5:0.5 A4:0.5 r:0.5 A4:0.5 C5 | C5:0.5 C5:0.5 D5:0.5 C5:0.5 F5:2~ |
+             E5:0.5 E5:0.5 D5:0.5 C5:0.5 r:0.5 C5:0.5 D5:0.5 E5:0.5 | G5:1.5 E5:0.5 D5 G4 |
+             r:0.5 A4:0.5 A4:0.5 A4:0.5 C5 A4 | r:0.5 C5:0.5 C5:0.5 C5:0.5 D5 C5 |
+             r:0.5 E5:0.5 E5:0.5 E5:0.5 G5 E5 | D5:0.5 D5:0.5 C5:0.5 D5:0.5 B4:2~ |
+             A4:0.5 A4:0.5 C5:0.5 A4:0.5 r:0.5 A4:0.5 C5 | C5:0.5 C5:0.5 D5:0.5 C5:0.5 F5:2~ |
+             E5:0.5 E5:0.5 D5:0.5 C5:0.5 D5:0.5 E5:0.5 G5 | E5:2>A5 r:2`,
+    chords: `Am | F | C | G | Am | F | C | G | Am | F | C | G | Am | F | C | Am`,
+  },
+  {
+    id: 'flow',
+    title: 'Tlapkový flow',
+    credit: 'Pôvodná skladba · rap',
+    difficulty: 3,
+    bpm: 96,
+    style: 'rap',
+    harmony: true,
+    speed: 1.3,
+    snacks: ['sushi', 'fish', 'candy'],
+    bg: ['#1b1b2f', '#7b2ff7'],
+    melody: `D5:0.25 D5:0.25 D5:0.5 F5:0.5 D5:0.5 r:0.5 D5:0.25 D5:0.25 F5:0.5 A5:0.5 | G5:0.5 F5:0.5 D5:0.5 F5:0.5 r:0.5 D5:0.5 C5 |
+             C5:0.25 C5:0.25 C5:0.5 F5:0.5 C5:0.5 r:0.5 C5:0.25 C5:0.25 F5:0.5 A5:0.5 | G5:0.5 E5:0.5 C5:0.5 E5:0.5 G5:2~ |
+             A5:0.5 A5:0.5 G5:0.5 F5:0.5 r:0.5 F5:0.25 F5:0.25 G5:0.5 A5:0.5 | Bb5:0.5 A5:0.5 G5:0.5 F5:0.5 D5:2~ |
+             F5:0.25 F5:0.25 F5:0.5 A5:0.5 F5:0.5 C5:0.5 F5:0.5 A5:0.5 C6:0.5 | Bb5:0.5 A5:0.5 G5:0.5 E5:0.5 C5:2 |
+             D5:0.25 D5:0.25 D5:0.5 F5:0.5 D5:0.5 r:0.5 D5:0.25 D5:0.25 F5:0.5 A5:0.5 | G5:0.5 F5:0.5 D5:0.5 F5:0.5 r:0.5 D5:0.5 C5 |
+             C5:0.25 C5:0.25 C5:0.5 F5:0.5 C5:0.5 r:0.5 C5:0.25 C5:0.25 F5:0.5 A5:0.5 | G5:0.5 E5:0.5 C5:0.5 E5:0.5 G5:2~ |
+             A5:0.5 A5:0.5 G5:0.5 F5:0.5 r:0.5 F5:0.25 F5:0.25 G5:0.5 A5:0.5 | Bb5:0.5 A5:0.5 G5:0.5 F5:0.5 D5:2~ |
+             F5:0.25 F5:0.25 F5:0.5 A5:0.5 F5:0.5 C5:0.5 F5:0.5 A5:0.5 C6:0.5 | Bb5:0.5 A5:0.5 G5:0.5 E5:0.5 D5:2~`,
+    chords: `Dm | Bb | F | C | Dm | Bb | F | C7 | Dm | Bb | F | C | Dm | Bb | F | Dm`,
+  },
+
+  // ---------- Rock ----------
+  {
+    id: 'kocurrock',
+    title: 'Kocúrí rock',
+    credit: 'Pôvodná skladba · rock',
+    difficulty: 2,
+    bpm: 128,
+    style: 'rock',
+    speed: 1.45,
+    snacks: ['fish', 'donut'],
+    bg: ['#c0392b', '#2c3e50'],
+    melody: `E5 G5:0.5 E5:0.5 A5 G5:0.5 E5:0.5 | A5 C#6:0.5 A5:0.5 B5:2~ | B5 A5:0.5 G#5:0.5 F#5 E5 | E5:3~ r |
+             E5 G5:0.5 E5:0.5 A5 G5:0.5 E5:0.5 | A5 B5:0.5 A5:0.5 F#5:2~ | B5:0.5 B5:0.5 A5:0.5 G#5:0.5 F#5:0.5 G#5:0.5 A5:0.5 B5:0.5 | E5:2~ r:2 |
+             G5:0.5 G5:0.5 E5 G5:0.5 G5:0.5 E5 | A5:0.5 A5:0.5 F#5 A5:0.5 A5:0.5 F#5 | B5 B5:0.5 A5:0.5 G#5 F#5 | E5:2 B4:2~ |
+             E5 G5:0.5 E5:0.5 A5 G5:0.5 E5:0.5 | A5 B5:0.5 A5:0.5 F#5:2~ | B5:0.5 B5:0.5 A5:0.5 G#5:0.5 F#5:0.5 G#5:0.5 A5:0.5 B5:0.5 | E5:4~`,
+    chords: `E | A | B | E | E | A | B | E | E | A | B | E | E | A | B | E`,
+  },
+  {
+    id: 'strecha',
+    title: 'Strecha v plameňoch',
+    credit: 'Pôvodná skladba · rock',
+    difficulty: 3,
+    bpm: 144,
+    style: 'rock',
+    harmony: true,
+    speed: 1.3,
+    snacks: ['star', 'fish', 'donut'],
+    bg: ['#ff5e3a', '#5b1a6b'],
+    melody: `A4:0.5 A4:0.5 C5:0.5 A4:0.5 D5:0.5 A4:0.5 E5 | F5:0.5 E5:0.5 D5:0.5 C5:0.5 D5:2~ |
+             G4:0.5 G4:0.5 B4:0.5 G4:0.5 C5:0.5 G4:0.5 D5 | E5:0.5 D5:0.5 C5:0.5 B4:0.5 A4:2~ |
+             A4:0.5 A4:0.5 C5:0.5 A4:0.5 D5:0.5 A4:0.5 E5 | F5:0.5 E5:0.5 D5:0.5 C5:0.5 D5:2~ |
+             G4:0.5 G4:0.5 B4:0.5 G4:0.5 C5:0.5 G4:0.5 D5 | E5:0.5 F5:0.5 G5:0.5 G#5:0.5 A5:2~ |
+             A5 G5:0.5 E5:0.5 C5 E5 | G5:1.5 E5:0.5 D5:2 | E5:0.5 E5:0.5 G5:0.5 A5:0.5 C6:0.5 A5:0.5 G5 | A5:3~ r |
+             A5 G5:0.5 E5:0.5 C5 E5 | G5:1.5 E5:0.5 D5:2 | C5:0.5 D5:0.5 E5:0.5 G5:0.5 E5:0.5 D5:0.5 C5:0.5 B4:0.5 | A4:4~`,
+    chords: `Am | Dm | G | Am | Am | Dm | G | E | F | G | Am | Am | F | G | G | Am`,
+  },
+  {
+    id: 'kankan',
+    title: 'Kankán (rock)',
+    credit: 'J. Offenbach · voľné dielo (rocková úprava)',
+    difficulty: 4,
+    bpm: 144,
+    beatsPerBar: 2,
+    chordBeats: 2,
+    switchEvery: 2,
+    style: 'rock',
+    speed: 1.2,
+    snacks: ['candy', 'strawberry', 'cupcake'],
+    bg: ['#ff2e7e', '#ffb02e'],
+    melody: KANKAN + ' | ' + KANKAN + ' | C5:2~',
+    chords: KANKAN_CH + ' | ' + KANKAN_CH + ' | C',
+  },
+
+  // ---------- Metal ----------
+  {
+    id: 'pazurmetal',
+    title: 'Pazúrový metal',
+    credit: 'Pôvodná skladba · metal',
+    difficulty: 4,
+    bpm: 168,
+    style: 'metal',
+    harmony: true,
+    speed: 1.2,
+    snacks: ['fish', 'star'],
+    bg: ['#0d0d0d', '#8b0000'],
+    melody: `E5:0.5 E5:0.25 E5:0.25 E5:0.5 E5:0.25 E5:0.25 G5:0.5 E5:0.5 A5:0.5 G5:0.5 | F#5:0.5 E5:0.5 D5:0.5 E5:0.5 B4:2~ |
+             E5:0.5 E5:0.25 E5:0.25 E5:0.5 E5:0.25 E5:0.25 G5:0.5 E5:0.5 A5:0.5 G5:0.5 | Bb5:0.5 A5:0.5 G5:0.5 F#5:0.5 E5:2~ |
+             C5:0.5 C5:0.25 C5:0.25 C5:0.5 C5:0.25 C5:0.25 E5:0.5 C5:0.5 G5:0.5 E5:0.5 | D5:0.5 D5:0.25 D5:0.25 D5:0.5 D5:0.25 D5:0.25 F#5:0.5 D5:0.5 A5:0.5 F#5:0.5 |
+             E5:0.5 G5:0.5 B5:0.5 G5:0.5 A5:0.5 B5:0.5 G5:0.5 F#5:0.5 | E5:3~ r |
+             B5 A5:0.5 G5:0.5 F#5 G5:0.5 A5:0.5 | B5:2~ E5:2 | C6 B5:0.5 A5:0.5 G5 A5:0.5 B5:0.5 | A5:2~ D5:2 |
+             E5:0.5 E5:0.25 E5:0.25 E5:0.5 E5:0.25 E5:0.25 G5:0.5 E5:0.5 A5:0.5 G5:0.5 | F#5:0.5 E5:0.5 D5:0.5 E5:0.5 B4:2~ |
+             G5:0.5 F#5:0.5 E5:0.5 D5:0.5 C5:0.5 B4:0.5 D#5:0.5 F#5:0.5 | E5:4~`,
+    chords: `Em | Bm | Em | Em | C | D | Em | Em | G | Em | Am | D | Em | Bm | B7 | Em`,
+  },
+  {
+    id: 'burka',
+    title: 'Nočná búrka',
+    credit: 'Pôvodná skladba · metal',
+    difficulty: 4,
+    bpm: 152,
+    style: 'metal',
+    speed: 1.2,
+    snacks: ['star', 'sushi'],
+    bg: ['#141e30', '#4a00e0'],
+    melody: `D5:0.25 D5:0.25 D5:0.25 D5:0.25 F5:0.5 D5:0.5 G5:0.5 D5:0.5 A5:0.5 G5:0.5 | F5:0.5 E5:0.5 D5:0.5 C#5:0.5 D5:2~ |
+             D5:0.25 D5:0.25 D5:0.25 D5:0.25 F5:0.5 D5:0.5 G5:0.5 D5:0.5 A5:0.5 G5:0.5 | Bb5:0.5 A5:0.5 G5:0.5 F5:0.5 E5:0.5 F5:0.5 G5:0.5 A5:0.5 |
+             Bb4:0.25 Bb4:0.25 Bb4:0.25 Bb4:0.25 D5:0.5 Bb4:0.5 F5:0.5 Bb4:0.5 G5:0.5 F5:0.5 | C5:0.25 C5:0.25 C5:0.25 C5:0.25 E5:0.5 C5:0.5 G5:0.5 C5:0.5 A5:0.5 G5:0.5 |
+             D6 C6:0.5 A5:0.5 Bb5 G5 | A5:3~ r |
+             D6:0.5 A5:0.5 F5:0.5 D5:0.5 D6:0.5 A5:0.5 F5:0.5 D5:0.5 | C6:0.5 G5:0.5 E5:0.5 C5:0.5 C6:0.5 G5:0.5 E5:0.5 C5:0.5 |
+             Bb5:0.5 F5:0.5 D5:0.5 Bb4:0.5 Bb5:0.5 F5:0.5 D5:0.5 Bb4:0.5 | A5:0.5 E5:0.5 C#5:0.5 A4:0.5 A5:2~ |
+             D5:0.25 D5:0.25 D5:0.25 D5:0.25 F5:0.5 D5:0.5 G5:0.5 D5:0.5 A5:0.5 G5:0.5 | F5:0.5 E5:0.5 D5:0.5 C#5:0.5 D5:2~ |
+             Bb5:0.5 A5:0.5 G5:0.5 F5:0.5 E5:0.5 D5:0.5 C#5:0.5 E5:0.5 | D5:4~`,
+    chords: `Dm | Dm | Dm | Gm | Bb | C | Gm | A | Dm | C | Bb | A | Dm | Dm | A7 | Dm`,
+  },
+
+  // ---------- Klasika ----------
+  {
+    id: 'dunaj',
+    title: 'Na krásnom modrom Dunaji',
+    credit: 'J. Strauss ml. · voľné dielo (úprava)',
+    difficulty: 2,
+    bpm: 168,
+    beatsPerBar: 3,
+    chordBeats: 3,
+    switchEvery: 2,
+    style: 'waltz',
+    speed: 1.45,
+    snacks: ['star', 'cupcake', 'strawberry'],
+    bg: ['#2f80ed', '#56ccf2'],
+    melody: `r:2 D4 | D4 F#4 A4 | A5:3~ | r A5 A5 | r F#5 F#5 |
+             r:2 D4 | D4 F#4 A4 | A5:3~ | r A5 A5 | r G5 G5 |
+             r:2 C#4 | C#4 E4 B4 | B5:3~ | r B5 B5 | r G5 G5 |
+             r:2 C#4 | C#4 E4 B4 | B5:3~ | r B5 B5 | r F#5 F#5 |
+             r:2 D4 | D4 F#4 A4 | D6:3~ | r D6 D6 | r A5 A5 |
+             r:2 D4 | D4 F#4 A4 | D6:3~ | r D6 D6 | r B5 B5 |
+             r:2 E4 | E4 G4 B4 | B5:3~ | A5:2 C#5 | D5:3~`,
+    chords: `- | D | D | D | D | D | D | D | D | A7 | A7 | A7 | A7 | A7 | A7 | A7 | A7 | A7 | A7 | D |
+             D | D | D | D | D | D | D | D | D | G | G | Em | Em | A7 | D`,
   },
 ];

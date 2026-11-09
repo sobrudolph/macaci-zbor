@@ -73,9 +73,15 @@
       <header class="bar">
         <button class="icon-btn" data-go="cats" aria-label="Späť">←</button>
         <h2 id="cat-title"></h2>
+        <button class="icon-btn" id="btn-rename" aria-label="Premenovať">✏️</button>
         <span class="wallet"></span>
       </header>
       <div class="cat-scroll">
+        <form id="rename" class="rename hidden" autocomplete="off">
+          <input id="rename-input" type="text" maxlength="16" placeholder="Nové meno" enterkeyhint="done">
+          <button class="btn small primary" type="submit">Uložiť</button>
+          <button class="btn small soft" type="button" id="rename-reset" title="Vrátiť pôvodné meno">↺</button>
+        </form>
         <canvas id="cat-stage"></canvas>
         <div id="cat-hunger" class="hunger"></div>
         <div class="assign">
@@ -122,6 +128,8 @@
           <li>Po 3 chybách hra končí. V <b>Relax režime</b> sa prehrať nedá, ale dostaneš len polovicu bodov.</li>
           <li>Za body z pesničiek nakupuješ v <b>Obchode</b> jedlo, oblečenie, okuliare, obojky, vodítka a pelechy vo veľa farbách.</li>
           <li>Mačky po každej pesničke a časom <b>vyhladnú</b>. Nakŕm ich v Mačkách. Najedená mačka (nad 60 %) dá <b>+10 % bodov</b>, hladná (pod 25 %) o 15 % menej.</li>
+          <li>Pozor na <b>prekŕmenie</b>: keď kŕmiš plnú mačku, priberie. Tučná mačka je v hre pomalšia a dá o 10 % menej bodov. Schudne spievaním a časom.</li>
+          <li>Mačku môžeš <b>premenovať</b> ceruzkou ✏️ v jej detaile.</li>
           <li>Na počítači: <kbd>A</kbd> <kbd>D</kbd> ľavá mačka, <kbd>←</kbd> <kbd>→</kbd> pravá mačka. Myš ovláda mačku na strane, kde je kurzor. <kbd>Esc</kbd> = pauza.</li>
         </ul>
       </div>

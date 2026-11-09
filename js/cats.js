@@ -463,6 +463,11 @@ function drawCat(g, cat, x, y, size, st = {}) {
     if (outfit) { drawOutfitLayer(g, outfit, name, t); g.strokeStyle = OUT; g.lineWidth = 2.5; }
   };
 
+  // tučná mačka: širšie bruško (fat 0..100)
+  const fat = Math.max(0, Math.min(100, st.fat || 0)) / 100;
+  g.save();
+  if (fat > 0.01) g.scale(1 + fat * 0.5, 1 + fat * 0.06);
+
   // chvost
   const wag = Math.sin(t * 3.1 + cat.seed) * 7;
   g.beginPath();
@@ -488,11 +493,13 @@ function drawCat(g, cat, x, y, size, st = {}) {
   g.lineWidth = 2.5;
   ell(g, -14, -4, 10, 6.5); fillStroke(g, paw);
   ell(g, 14, -4, 10, 6.5); fillStroke(g, paw);
+  g.restore();
   if (bed) drawOutfitLayer(g, { bed: outfit.bed }, 'bedFront', t);
 
   // hlava
   g.save();
-  g.translate(0, Math.sin(t * 2.4 + cat.seed) * 1.2 - sq * 2);
+  g.translate(0, Math.sin(t * 2.4 + cat.seed) * 1.2 - sq * 2 + fat * 3);
+  if (fat > 0.01) g.scale(1 + fat * 0.12, 1); // bucľaté líčka
   g.lineWidth = 3;
   for (const s of [-1, 1]) {
     g.beginPath();

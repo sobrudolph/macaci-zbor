@@ -14,8 +14,13 @@
     try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) { /* ignore */ }
   }
   const store = Object.assign({ catL: 'mica', catR: 'rysavec', relax: false, best: {} }, load());
-  for (const k of ['best', 'owned', 'outfits', 'hunger']) {
+  for (const k of ['best', 'owned', 'outfits', 'hunger', 'names', 'fat']) {
     if (!store[k] || typeof store[k] !== 'object') store[k] = {};
+  }
+  // vlastné mená mačiek (pôvodné meno ostáva v baseName)
+  for (const c of CATS) {
+    c.baseName = c.name;
+    if (typeof store.names[c.id] === 'string' && store.names[c.id]) c.name = store.names[c.id];
   }
   if (typeof store.coins !== 'number') {
     // uvítací darček
@@ -70,6 +75,26 @@
     return `<div class="hbar ${m.cls}"><i style="width:${Math.round(v)}%"></i></div>`;
   }
 
+  // ---------- Váha: prekŕmená mačka priberie ----------
+  const FAT_LOSS_PER_HOUR = 1.5; // pomaly schudne sama
+  const FAT_SONG_LOSS = 8;       // spievanie je pohyb, každá pesnička trochu schudne
+  const FAT_GAIN = 0.8;          // koľko z jedla navyše (nad 100 % sýtosti) ide do váhy
+
+  function fatOf(id) {
+    const f = store.fat[id];
+    if (!f) return 0;
+    return clampN(f.v - ((Date.now() - f.t) / 3600000) * FAT_LOSS_PER_HOUR, 0, 100);
+  }
+  function setFat(id, v) {
+    v = clampN(v, 0, 100);
+    if (v < 0.5) delete store.fat[id]; else store.fat[id] = { v, t: Date.now() };
+  }
+  function weightOf(v) {
+    if (v >= 60) return { cls: 'fat2', label: 'Tučná!', bonus: -0.1 };
+    if (v >= 25) return { cls: 'fat1', label: 'Bucľatá', bonus: 0 };
+    return { cls: 'fat0', label: 'Štíhla', bonus: 0 };
+  }
+
   // ---------- Oblečenie ----------
   const outfitOf = id => resolveOutfit(store.outfits[id]);
   function equip(catId, slot, key) {
@@ -84,7 +109,7 @@
   function syncGame() {
     const cats = chosenCats();
     game.setCats(cats);
-    game.looks = cats.map(c => ({ outfit: outfitOf(c.id), hunger: hungerOf(c.id) }));
+    game.looks = cats.map(c => ({ outfit: outfitOf(c.id), hunger: hungerOf(c.id), fat: fatOf(c.id) }));
   }
   syncGame();
   setInterval(syncGame, 60000);
@@ -116,7 +141,7 @@
     const g = prepCanvas(cv, px, px);
     const f = FOCUS[focus] || FOCUS.full;
     const s = px / f.h;
-    drawCat(g, cat, px / 2 - f.cx * s, px / 2 - f.cy * s, 105 * s, Object.assign({ t: 0.6, outfit }, st));
+    drawCat(g, cat, px / 2 - f.cx * s, px / 2 - f.cy * s, 105 * s, Object.assign({ t: 0.6, outfit, fat: fatOf(cat.id) }, st));
   }
   function paintFood(cv, food, px) {
     const g = prepCanvas(cv, px, px);
@@ -138,7 +163,7 @@
     if (name === 'songs') renderSongs();
     if (name === 'cats') renderCats();
     if (name === 'shop') renderShop();
-    if (name === 'cat') renderCatDetail();
+    if (name === 'cat') { $('#rename').classList.add('hidden'); renderCatDetail(); }
     if (name === 'menu') syncGame();
     show(name);
   }
@@ -171,7 +196,7 @@
           <div class="song-credit"></div>
         </div>
         <div class="song-meta">
-          <div class="diff" title="Obtiažnosť">${'●'.repeat(s.difficulty)}${'○'.repeat(3 - s.difficulty)}</div>
+          <div class="diff" title="Obtiažnosť">${'●'.repeat(s.difficulty)}${'○'.repeat(4 - s.difficulty)}</div>
           <div class="stars">${starStr(best ? best.stars : 0)}</div>
           <div class="best">${best ? fmt(best.score) : '—'}</div>
         </div>`;
@@ -229,6 +254,7 @@
     $$('.cat-card').forEach(el => {
       const id = el.dataset.id;
       const cat = catById(id);
+      el.querySelector('.cat-name').textContent = cat.name;
       const tags = [];
       if (id === l.id) tags.push('Ľ');
       if (id === r.id) tags.push('P');
@@ -266,11 +292,17 @@
     const cat = catById(detailId);
     const v = hungerOf(cat.id);
     const m = moodOf(v);
+    const fat = fatOf(cat.id);
+    const wt = weightOf(fat);
     $('#cat-hunger').innerHTML = `
       <div class="hrow"><span>Sýtosť</span><b class="${m.cls}">${Math.round(v)} % · ${m.label}</b></div>
       ${hungerBar(v)}
       <div class="hnote">${m.bonus > 0 ? `Najedená mačka spieva lepšie: +${Math.round(m.bonus * 100)} % bodov` :
-        m.bonus < 0 ? `Hladná mačka spieva slabšie: −${Math.round(-m.bonus * 100)} % bodov` : 'Nakŕm ju nad 60 % a získaš bonus k bodom'}</div>`;
+        m.bonus < 0 ? `Hladná mačka spieva slabšie: −${Math.round(-m.bonus * 100)} % bodov` : 'Nakŕm ju nad 60 % a získaš bonus k bodom'}</div>
+      <div class="hrow w"><span>Váha</span><b class="${wt.cls}">${wt.label}</b></div>
+      <div class="hbar fat"><i style="width:${Math.max(3, Math.round(fat))}%"></i></div>
+      <div class="hnote">${fat >= 60 ? `Tučná mačka je v hre pomalšia a dá −${Math.round(-wt.bonus * 100)} % bodov. Schudne spievaním a časom.` :
+        fat >= 25 ? 'Ešte trochu a bude tučná! Spievanie pomáha schudnúť.' : 'Keď ju prekŕmiš (nad 100 % sýtosti), priberie.'}</div>`;
     const bl = $('#btn-set-l'), br = $('#btn-set-r');
     bl.classList.toggle('on', store.catL === cat.id);
     br.classList.toggle('on', store.catR === cat.id);
@@ -295,6 +327,47 @@
   $$('#cat-tabs button').forEach(b => b.addEventListener('click', () => {
     audio.init(); audio.blip(); catTab = b.dataset.tab; renderCatDetail();
   }));
+
+  // premenovanie mačky
+  function setName(id, raw) {
+    const cat = catById(id);
+    const name = String(raw).replace(/\s+/g, ' ').trim().slice(0, 16) || cat.baseName;
+    cat.name = name;
+    if (name === cat.baseName) delete store.names[id]; else store.names[id] = name;
+    save();
+    return name;
+  }
+  $('#btn-rename').addEventListener('click', () => {
+    audio.init(); audio.blip();
+    const f = $('#rename');
+    f.classList.toggle('hidden');
+    if (!f.classList.contains('hidden')) {
+      const i = $('#rename-input');
+      i.value = catById(detailId).name;
+      i.focus();
+      i.select();
+    }
+  });
+  $('#rename').addEventListener('submit', e => {
+    e.preventDefault();
+    const cat = catById(detailId);
+    const old = cat.name;
+    const name = setName(cat.id, $('#rename-input').value);
+    $('#rename-input').blur();
+    $('#rename').classList.add('hidden');
+    renderCatDetail();
+    if (name !== old) {
+      toast(`${old} sa teraz volá ${name}`);
+      audio.preview(cat.voice, 76);
+      stage.chew = 0.4;
+    }
+  });
+  $('#rename-reset').addEventListener('click', () => {
+    audio.blip();
+    const i = $('#rename-input');
+    i.value = catById(detailId).baseName;
+    i.focus();
+  });
 
   function emptyBox(text, btnText, model) {
     const d = document.createElement('div');
@@ -332,13 +405,27 @@
     shopTab = 'food';
   }
 
+  let overfeedAsk = { id: null, t: 0 };
   function feed(cat, food) {
     audio.init();
     const v = hungerOf(cat.id);
-    if (v >= 99.5) { toast(`${cat.name} je už plná!`); return; }
+    // plná mačka: prvé ťuknutie len upozorní, druhé ju prekŕmi
+    if (v >= 95 && (overfeedAsk.id !== cat.id || Date.now() - overfeedAsk.t > 4000)) {
+      overfeedAsk = { id: cat.id, t: Date.now() };
+      toast(`${cat.name} je plná. Ťukni znova a priberie 🐷`);
+      return;
+    }
     store.pantry[food.id]--;
     if (!store.pantry[food.id]) delete store.pantry[food.id];
+    const extra = Math.max(0, v + food.fill - 100);
     setHunger(cat.id, v + food.fill);
+    if (extra > 0) {
+      const before = weightOf(fatOf(cat.id)).cls;
+      setFat(cat.id, fatOf(cat.id) + extra * FAT_GAIN);
+      const after = weightOf(fatOf(cat.id));
+      if (after.cls !== before) toast(`${cat.name} pribrala – je ${after.label.toLowerCase().replace('!', '')}!`);
+      else toast(`${cat.name} je prejedená a priberá…`);
+    }
     save();
     syncGame();
     stage.food = food; stage.foodT = 0; stage.chew = 0;
@@ -439,6 +526,7 @@
     drawCat(g, cat, cx, by, size, {
       t: stage.t,
       outfit: outfitOf(cat.id),
+      fat: fatOf(cat.id),
       mouth: chewing ? 0.35 + 0.35 * Math.sin(stage.t * 20) : 0,
       blink: !chewing && (stage.t % 3.2) < 0.12,
       sad: hungry && !chewing,
@@ -631,15 +719,19 @@
     // body na nákupy: bonus za najedené mačky, menej za hladné, polovica v relax režime
     const cats = chosenCats();
     const bonus = cats.reduce((s, c) => s + moodOf(hungerOf(c.id)).bonus, 0);
-    const earned = Math.max(0, Math.round(r.score * (1 + bonus) * (store.relax ? 0.5 : 1)));
+    const fatPen = cats.reduce((s, c) => s + weightOf(fatOf(c.id)).bonus, 0);
+    const earned = Math.max(0, Math.round(r.score * (1 + bonus + fatPen) * (store.relax ? 0.5 : 1)));
     store.coins += earned;
-    for (const c of cats) setHunger(c.id, hungerOf(c.id) - SONG_COST);
+    for (const c of cats) {
+      setHunger(c.id, hungerOf(c.id) - SONG_COST);
+      setFat(c.id, fatOf(c.id) - FAT_SONG_LOSS);
+    }
     save();
     syncGame();
-    setTimeout(() => showResult(r, isNew, earned, bonus), r.cleared ? 900 : 600);
+    setTimeout(() => showResult(r, isNew, earned, bonus, fatPen), r.cleared ? 900 : 600);
   };
 
-  function showResult(r, isNew, earned, bonus) {
+  function showResult(r, isNew, earned, bonus, fatPen) {
     if (game.mode !== 'over') return;
     $('#res-title').textContent = r.cleared ? 'Hotovo!' : 'Mačky sú ešte hladné!';
     const stars = $('#res-stars');
@@ -657,6 +749,7 @@
     const notes = [];
     if (bonus > 0.001) notes.push(`najedené mačky +${Math.round(bonus * 100)} %`);
     if (bonus < -0.001) notes.push(`hladné mačky −${Math.round(-bonus * 100)} %`);
+    if (fatPen < -0.001) notes.push(`tučné mačky −${Math.round(-fatPen * 100)} %`);
     if (store.relax) notes.push('relax režim ½');
     $('#res-earn').innerHTML = `<div class="earn">+${price(earned)}</div><small>na nákupy${notes.length ? ' · ' + notes.join(' · ') : ''}</small>`;
     show('result');

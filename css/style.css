@@ -373,6 +373,39 @@ kbd {
 .hrow b.low { color: #ff9aa8; }
 .hunger .hbar { height: 11px; }
 .hnote { font-size: 12px; opacity: .8; margin-top: 4px; }
+.hrow.w { margin-top: 10px; }
+.hbar.fat i { background: linear-gradient(90deg, #9fd3ff, #ffb36b 60%, #ff7a59); }
+.hrow b.fat0 { color: #bfe3ff; }
+.hrow b.fat1 { color: #ffd08a; }
+.hrow b.fat2 { color: #ff9a7a; }
+
+#screen-cat .bar h2 {
+  min-width: 0;
+  font-size: clamp(18px, 5.6vw, 26px);
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+#btn-rename { flex: none; font-size: 18px; }
+.rename { display: flex; gap: 8px; flex: none; margin-top: 4px; }
+.rename.hidden { display: none; }
+.rename input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 17px; /* aspoň 16px, inak iPhone priblíži stránku */
+  font-weight: 600;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 2px solid rgba(255, 255, 255, .5);
+  background: rgba(255, 255, 255, .95);
+  color: var(--ink);
+  outline: none;
+}
+.rename input:focus { border-color: var(--gold); }
 .assign { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; flex: none; }
 .assign .btn { background: rgba(255, 255, 255, .15); color: #fff; box-shadow: none; }
 .assign .btn.on { background: var(--gold); color: var(--ink); }

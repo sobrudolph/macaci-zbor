@@ -4,7 +4,8 @@
  * Hodiny hry = AudioContext.currentTime, takže obraz je vždy zladený s hudbou.
  */
 const HIT_EARLY = 0.035;  // o koľko skôr (s) sa dá pochúťka chytiť
-const HIT_LATE = 0.08;    // o koľko neskôr (s) sa ešte počíta
+const HIT_LATE = 0.07;    // o koľko neskôr (s) sa ešte počíta
+const FALL_MULT = 0.88;   // všetky pochúťky padajú o 12 % rýchlejšie ako je zapísané v pesničke
 const MAX_LIVES = 3;
 const FONT = 'Fredoka, system-ui, -apple-system, "Segoe UI", sans-serif';
 const FX_COLORS = ['#ffe36e', '#ff8fb8', '#7cc6ff', '#8be08b', '#ffffff', '#b49bff'];
@@ -71,7 +72,7 @@ class Game {
     this.catSize = Math.min(this.half * 0.62, this.H * 0.14);
     this.catBottom = this.catchY + this.catSize * 0.47; // pusa mačky je presne na čiare chytania
     this.snackR = this.catSize * 0.2;
-    this.tol = this.catSize * 0.31 + this.snackR * 0.45; // ako presne musí mačka stáť pod pochúťkou
+    this.tol = this.catSize * 0.27 + this.snackR * 0.45; // ako presne musí mačka stáť pod pochúťkou
     this.spawnY = -this.snackR * 2;
     for (const c of this.cats) {
       c.x = c.target = this.mode === 'idle' || !c.x ? this.laneX(c.side, 0.5) : this.clampX(c.side, c.x);
@@ -131,6 +132,7 @@ class Game {
   start(song, defs, relax) {
     this.song = song;
     this.chart = buildSong(song);
+    this.fall = song.speed * FALL_MULT; // čas pádu pochúťky (s)
     this.catDefs = defs;
     this.relax = !!relax;
     this.notes = this.chart.notes.map(n => Object.assign({}, n, {
@@ -155,7 +157,7 @@ class Game {
     if (this.bus) this.audio.killBus(this.bus);
     this.bus = this.audio.newBus();
     const bar = this.chart.bpb * this.chart.spb;
-    this.songStart = this.audio.now + Math.max(song.speed + 0.4, bar + 0.3);
+    this.songStart = this.audio.now + Math.max(this.fall + 0.4, bar + 0.3);
     this.mode = 'play';
   }
 
@@ -250,9 +252,12 @@ class Game {
       const left = c.side === 0 ? this.keys.KeyA : this.keys.ArrowLeft || this.keys.KeyJ;
       const right = c.side === 0 ? this.keys.KeyD : this.keys.ArrowRight || this.keys.KeyL;
       const dir = (right ? 1 : 0) - (left ? 1 : 0);
-      if (dir) c.target = this.clampX(c.side, c.target + dir * this.half * 4.2 * dt);
+      // tučná mačka (nad 50) sa hýbe pomalšie
+      const look = (this.looks && this.looks[c.side]) || {};
+      const slow = 1 - Math.max(0, (look.fat || 0) - 50) / 100;
+      if (dir) c.target = this.clampX(c.side, c.target + dir * this.half * 4.2 * slow * dt);
       const old = c.x;
-      c.x += (c.target - c.x) * Math.min(1, dt * 28);
+      c.x += (c.target - c.x) * Math.min(1, dt * 28 * slow);
       c.vel = dt > 0 ? (c.x - old) / dt : 0;
     }
   }
@@ -350,7 +355,7 @@ class Game {
     const p = clamp((t - n.time) / n.hold.dur, 0, 1);
     const x = this.laneX(n.side, n.u + (n.u2 - n.u) * p);
     const c = this.cats[n.side];
-    if (Math.abs(c.x - x) <= this.tol * 1.2) {
+    if (Math.abs(c.x - x) <= this.tol * 1.12) {
       n.holdLastOk = t;
       this.score += dt * 240 * this.mult();
       if (Math.random() < dt * 14) {
@@ -382,7 +387,7 @@ class Game {
     const seen = [false, false];
     for (let i = this.first; i < this.notes.length && !(seen[0] && seen[1]); i++) {
       const n = this.notes[i];
-      if (n.time - t > this.song.speed) break;
+      if (n.time - t > this.fall) break;
       if (n.state !== 0 || seen[n.side]) continue;
       seen[n.side] = true;
       const c = this.cats[n.side];
@@ -509,6 +514,7 @@ class Game {
         look: c.look,
         tilt: clamp(c.vel * 0.00025, -0.12, 0.12),
         outfit: look.outfit,
+        fat: look.fat || 0,
         noBed: !idle,
       });
       if (idle && look.hunger != null) this._hungerBar(c.x, this.catBottom + this.catSize * 0.2, look.hunger);
@@ -543,7 +549,7 @@ class Game {
 
   _renderNotes(t) {
     const g = this.g;
-    const app = this.song.speed;
+    const app = this.fall;
     const D = this.catchY - this.spawnY;
     const yOf = tau => this.catchY - ((tau - t) / app) * D;
     const kinds = this.song.snacks;
