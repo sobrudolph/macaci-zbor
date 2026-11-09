@@ -8,7 +8,8 @@ Každú mačku ovládaš jedným palcom. Keď pochúťku chytíš, mačka zamňa
 - **Obchod:** za body z pesničiek kupuješ jedlo (granule, konzervy, mlieko, mlsky) a viac ako 50 druhov oblečenia, okuliarov, obojkov, vodítok a pelechov, každý vo veľa farbách.
 - **Starostlivosť:** mačky časom a po pesničkách vyhladnú. Najedené mačky dajú bonus k bodom, hladné menej. Prekŕmené mačky rýchlo priberú a ťažko sa hýbu. Schudnú len pohybom v pesničkách, postupne za viac hier.
 - **Diktát:** mačička pomaly 2× nadiktuje po slovensky jednu vetu z 5 slov (2. ročník ZŠ – veľké písmená, dĺžne, mäkčene, otázky),
-  dieťa ju napíše a na konci sa opraví s vysvetlením chyby. Za vetu bez chyby +3 IQ, s chybou nič. Vety sú v `js/dictation-sentences.js`.
+  dieťa ju napíše a na konci sa opraví s vysvetlením chyby. Za vetu bez chyby +3 IQ, za každú chybu −1 IQ (najnižšie 0). Číta sa cez hlas zariadenia
+  (iPhone/iPad aj Android – ak chýba slovenský hlas, hra ukáže, kde ho doinštalovať). Vety sú v `js/dictation-sentences.js`.
 - **Prvouka:** doplňovačky pre 2. ročník (Slovensko, kalendár, čas, kostra, svaly, bezpečnosť na ceste, doprava) –
   slová sa prstom presúvajú do rovnako veľkých medzier vo vetách alebo k obrázkom kostry a dopravných prostriedkov.
   Za každé správne slovo +1 IQ. Úlohy sú v `js/prvouka.js`.

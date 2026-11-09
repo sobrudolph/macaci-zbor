@@ -1485,27 +1485,35 @@
   $('#btn-lesson-again').addEventListener('click', () => { audio.init(); audio.blip(); startLesson(lessonCatId); });
 
   // ---------- Diktát: jedna hra = jedna veta z 5 slov, na konci sa opraví ----------
-  const DICT_IQ = 3;           // IQ za vetu bez chyby (s chybou IQ nepribudne)
+  const DICT_IQ = 3;           // IQ za vetu bez chyby
+  const DICT_MISTAKE_IQ = 1;   // za každú chybu sa odráta 1 IQ (najmenej na 0)
   const DICT_COINS = 200;      // body na nákupy za vetu bez chyby
   const DICT_RATE = 0.62;      // pomalé diktovanie
   const DICT_REPEATS = 2;      // koľkokrát za sebou sa veta prečíta, potom sa dá pustiť znova
 
   const speech = window.speechSynthesis || null;
+  const IS_ANDROID = /Android/i.test(navigator.userAgent);
   let skVoice = null, voicesLoaded = false;
   function pickVoice() {
     if (!speech) return;
-    const vs = speech.getVoices();
+    let vs = [];
+    try { vs = speech.getVoices() || []; } catch (e) { /* ignore */ }
     if (vs.length) voicesLoaded = true;
-    skVoice = vs.find(v => /^sk([-_]|$)/i.test(v.lang)) || null;
-  }
-  if (speech) {
-    pickVoice();
-    if (speech.addEventListener) speech.addEventListener('voiceschanged', pickVoice);
-    else speech.onvoiceschanged = pickVoice;
+    // Android ho môže mať ako „sk_SK“, „sk-SK“ alebo len „sk“; prednosť má hlas priamo v zariadení
+    const sk = vs.filter(v => /^sk([-_]|$)/i.test(v.lang || '') || /sloven(č|c)ina|slovak/i.test(v.name || ''));
+    skVoice = sk.find(v => v.localService) || sk[0] || null;
+    if (dict) renderDictWarn();
   }
 
   let dict = null;
   let dictCatId = null;
+  if (speech) {
+    pickVoice();
+    if (speech.addEventListener) speech.addEventListener('voiceschanged', pickVoice);
+    else speech.onvoiceschanged = pickVoice;
+    // niektoré Androidy pošlú zoznam hlasov až neskôr a bez udalosti
+    [300, 1000, 2500].forEach(ms => setTimeout(pickVoice, ms));
+  }
   const sleep = ms => new Promise(r => setTimeout(r, ms));
 
   /** Vyberie jednu vetu, ktorá nebola nedávno (otázky aj oznamovacie vety sa striedajú náhodne). */
@@ -1556,10 +1564,22 @@
     $('#dict-result').classList.add('hidden');
     dict.checked = false;
     updatePlay();
+    renderDictWarn();
+  }
+
+  function renderDictWarn() {
     const warn = $('#dict-warn');
-    if (!speech) { warn.textContent = 'Tento prehliadač nevie čítať nahlas, diktát tu nepôjde.'; warn.classList.remove('hidden'); }
-    else if (voicesLoaded && !skVoice) { warn.textContent = 'Na tomto zariadení chýba slovenský hlas, diktát môže znieť zvláštne.'; warn.classList.remove('hidden'); }
-    else warn.classList.add('hidden');
+    let msg = '';
+    if (!speech) msg = 'Tento prehliadač nevie čítať nahlas. Skús Chrome (Android) alebo Safari (iPhone).';
+    else if (voicesLoaded && !skVoice) {
+      msg = IS_ANDROID
+        ? 'Chýba slovenský hlas. V Androide: Nastavenia → Systém → Jazyky → Prevod textu na reč → Google → Nainštalovať hlasové údaje → Slovenčina.'
+        : /iPhone|iPad|Mac/i.test(navigator.userAgent)
+          ? 'Chýba slovenský hlas. Nastavenia → Prístupnosť → Hovorený obsah → Hlasy → Slovenčina.'
+          : 'Na tomto zariadení chýba slovenský hlas, diktát môže znieť zvláštne.';
+    }
+    warn.textContent = msg;
+    warn.classList.toggle('hidden', !msg);
   }
 
   function updatePlay() {
@@ -1569,20 +1589,27 @@
     b.textContent = dict.speaking ? `🔊 Diktujem… (${dict.pass}/${DICT_REPEATS})` : '▶ Prehrať vetu znova';
   }
 
-  /** Prečíta jednu vetu nahlas; vráti sa, keď dočíta (alebo po bezpečnom čase, ak iPhone nezavolá onend). */
+  // odkaz na práve čítanú vetu – Chrome na Androide ju inak môže zahodiť a nikdy nezavolá onend
+  let curUtter = null;
+
+  /** Prečíta jednu vetu nahlas; vráti sa, keď dočíta (alebo po bezpečnom čase, ak telefón nezavolá onend). */
   function sayOnce(text) {
     return new Promise(res => {
       if (!speech) { setTimeout(res, 400); return; }
+      if (!skVoice) pickVoice();
       const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'sk-SK';
+      u.lang = skVoice && skVoice.lang ? skVoice.lang.replace('_', '-') : 'sk-SK';
       if (skVoice) u.voice = skVoice;
       u.rate = DICT_RATE;
       u.pitch = 1.05;
+      u.volume = 1;
       let done = false;
-      const fin = () => { if (!done) { done = true; clearTimeout(tm); res(); } };
+      const fin = () => { if (!done) { done = true; clearTimeout(tm); curUtter = null; res(); } };
       const tm = setTimeout(fin, 3000 + text.length * 170);
       u.onend = fin;
       u.onerror = fin;
+      curUtter = u;
+      try { if (speech.paused) speech.resume(); } catch (e) { /* ignore */ }
       speech.speak(u);
     });
   }
@@ -1593,7 +1620,11 @@
     const token = ++dict.token;
     const d = dict;
     d.speaking = true;
-    if (speech) speech.cancel();
+    if (speech && (speech.speaking || speech.pending)) {
+      speech.cancel();
+      await sleep(250); // Android: hneď po cancel() by novú vetu zahodil
+      if (dict !== d || d.token !== token) return;
+    }
     for (let k = 1; k <= DICT_REPEATS; k++) {
       if (limitOpen) break; // vypršal čas – diktovanie skončí, po úlohách sa dá pustiť znova
       d.pass = k;
@@ -1750,6 +1781,11 @@
     } else {
       const ops = diffWords(typed.split(' '), right.split(' '));
       const nBad = ops.filter(o => o.k !== 'ok').length;
+      // za každú chybu −1 IQ, najmenej 0 (do mínusu nejde)
+      const before = iqOf(cat.id);
+      addIq(cat.id, -nBad * DICT_MISTAKE_IQ);
+      dict.lost = before - iqOf(cat.id);
+      if (dict.lost > 0) popDict(`−${dict.lost} IQ`);
       verdict.className = 'dict-verdict bad';
       verdict.textContent = `Sú tam chyby (${nBad}). Pozri sa, čo treba opraviť:`;
       for (const o of ops) {
@@ -1789,7 +1825,9 @@
     const now = iqOf(cat.id);
     $('#dict-iqline').textContent = item.ok
       ? `${cat.name}: IQ ${dict.startIq} → ${now}${now >= IQ_MAX ? ' · Génius! 🎓' : ''}`
-      : `${cat.name} tentoraz IQ nedostane. Skús ďalšiu vetu!`;
+      : dict.lost > 0
+        ? `${cat.name}: IQ ${dict.startIq} → ${now} (za každú chybu −1)`
+        : `${cat.name} má IQ 0, nižšie už neklesne. Skús ďalšiu vetu!`;
     $('#dict-earn').innerHTML = coins ? `<div class="earn">+${price(coins)}</div><small>na nákupy</small>` : '';
     $('#dict-progress').textContent = item.ok ? 'Bez chyby' : 'Oprava';
     $('#dict-result').classList.remove('hidden');
