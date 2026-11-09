@@ -616,6 +616,30 @@ kbd {
 }
 .keypad button:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(60, 20, 90, .18); }
 .keypad .ok-key { background: var(--accent); color: #fff; }
+.limit-task { margin: 0; font-weight: 700; color: var(--ink); font-size: 16px; }
+
+/* ručičkové hodiny */
+#limit-clock { align-items: center; }
+.clock-ask { font-size: 18px; font-weight: 600; color: var(--ink); }
+.clock-target {
+  display: inline-block;
+  font-size: 34px;
+  font-weight: 700;
+  color: var(--accent2);
+  background: #efe9f7;
+  border-radius: 12px;
+  padding: 0 10px;
+  margin-left: 4px;
+  vertical-align: -3px;
+}
+.clock-target.ok { color: #fff; background: #5cc16a; }
+.clock-target.bad { color: #fff; background: #ff5f7a; }
+#clock-cv { touch-action: none; cursor: grab; flex: none; }
+.clock-hint { margin: 0; font-size: 13px; color: var(--muted); }
+.clock-hint .h { color: #ff5f9e; }
+.clock-hint .m { color: #7d6bd6; }
+#btn-clock-ok { width: 100%; }
+
 .quiz-review { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-weight: 600; }
 .quiz-review li.bad { color: #e0475b; }
 .quiz-review li.ok { color: #2e9e45; }

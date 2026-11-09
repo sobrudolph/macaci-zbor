@@ -711,12 +711,18 @@
   $('#btn-restart').addEventListener('click', () => { game.quit(); startSong(current); });
   $('#btn-quit').addEventListener('click', () => { game.quit(); go('menu'); });
 
-  // ---------- Limit: 10 minút zapnutej aplikácie, potom 5 príkladov ----------
-  const LIMIT_MIN = 10;
+  // ---------- Limit: 6 minút zapnutej aplikácie, potom úlohy ----------
+  // Úlohy sú buď 5 príkladov (sčítanie/odčítanie do 20), alebo 3× nastaviť ručičkové hodiny.
+  // Typ sa vyberie náhodne pri každom limite a nemieša sa. Pri chybe príde nové kolo rovnakého typu.
+  const LIMIT_MIN = 6;
   const QUIZ_LEN = 5;
+  const CLOCK_LEN = 3;
   if (typeof store.timeLeft !== 'number' || !isFinite(store.timeLeft)) store.timeLeft = LIMIT_MIN * 60;
+  store.timeLeft = Math.min(store.timeLeft, LIMIT_MIN * 60);
   let limitOpen = false;
-  let quiz = null;
+  let task = null;      // 'math' | 'clock'
+  let quiz = null;      // stav príkladov
+  let clk = null;       // stav hodín
   const rand = n => Math.floor(Math.random() * n);
   const fmtTime = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
@@ -737,20 +743,35 @@
   }, 1000);
 
   function limitCard(name) {
-    for (const n of ['wall', 'quiz', 'done']) $('#limit-' + n).classList.toggle('hidden', n !== name);
+    for (const n of ['wall', 'quiz', 'clock', 'done']) $('#limit-' + n).classList.toggle('hidden', n !== name);
   }
 
   function openLimit() {
     if (limitOpen) return;
     limitOpen = true;
-    if (game.mode === 'play') doPause(); // pesnička počká, po vyriešení príkladov pokračuje
+    if (game.mode === 'play') doPause(); // pesnička počká, po splnení úloh pokračuje
+    // typ úlohy sa uloží, aby sa nedal "prehodiť" zatvorením aplikácie
+    if (store.limitTask !== 'math' && store.limitTask !== 'clock') store.limitTask = Math.random() < 0.5 ? 'math' : 'clock';
+    task = store.limitTask;
     save();
     $('#limit-min').textContent = LIMIT_MIN;
+    $('#limit-text').textContent = `Aplikácia bola zapnutá ${LIMIT_MIN} minút. Splň úlohu a dostaneš ďalších ${LIMIT_MIN} minút.`;
+    $('#limit-task').textContent = task === 'clock'
+      ? `Úloha: 🕐 ${CLOCK_LEN}× správne nastav ručičkové hodiny`
+      : `Úloha: ➕ ${QUIZ_LEN} príkladov na sčítanie a odčítanie`;
     limitCard('wall');
     $('#limit').classList.remove('hidden');
   }
 
-  /** 5 príkladov: sčítanie a odčítanie do 20 (výsledok 0–20), aspoň 2 z každého druhu. */
+  function startTask() {
+    if (task === 'clock') startClock(); else startQuiz();
+  }
+
+  const dots = (items, cur, isOk) => items.map((q, i) =>
+    `<i class="${q.done ? (isOk(q) ? 'ok' : 'bad') : i === cur ? 'cur' : ''}"></i>`).join('');
+
+  // ===== Príklady =====
+  /** 5 príkladov: sčítanie a odčítanie do 20 (výsledok 1–20), aspoň 2 z každého druhu. */
   function makeProblems() {
     const ops = ['+', '+', '−', '−', Math.random() < 0.5 ? '+' : '−'].sort(() => Math.random() - 0.5);
     const seen = new Set();
@@ -762,7 +783,7 @@
         key = a + op + b;
       } while (seen.has(key));
       seen.add(key);
-      return { a, b, op, res: op === '+' ? a + b : a - b, ans: null };
+      return { a, b, op, res: op === '+' ? a + b : a - b, ans: null, done: false };
     });
   }
 
@@ -774,8 +795,7 @@
 
   function renderQuiz(state) {
     const p = quiz.probs[quiz.i];
-    $('#quiz-dots').innerHTML = quiz.probs.map((q, i) =>
-      `<i class="${q.ans == null ? (i === quiz.i ? 'cur' : '') : q.ans === q.res ? 'ok' : 'bad'}"></i>`).join('');
+    $('#quiz-dots').innerHTML = dots(quiz.probs, quiz.i, q => q.ans === q.res);
     $('#quiz-label').textContent = `Príklad ${quiz.i + 1} z ${QUIZ_LEN}`;
     const q = $('#quiz-q');
     q.className = 'quiz-q' + (state ? ' ' + state : '');
@@ -790,7 +810,7 @@
     b.textContent = k === 'OK' ? '✓' : k;
     if (k === 'OK') b.className = 'ok-key';
     b.setAttribute('aria-label', k === '⌫' ? 'Zmazať' : k === 'OK' ? 'Potvrdiť' : k);
-    b.addEventListener('click', () => { audio.init(); quizKey(k); });
+    b.addEventListener('click', () => quizKey(k));
     $('#keypad').append(b);
   }
   window.addEventListener('keydown', e => {
@@ -816,55 +836,308 @@
     if (!quiz.input) return;
     const p = quiz.probs[quiz.i];
     p.ans = Number(quiz.input);
+    p.done = true;
     const ok = p.ans === p.res;
-    if (ok) audio.preview(chosenCats()[0].voice, 79); else audio.miss(audio.ui);
+    feedbackSound(ok);
     quiz.busy = true;
     renderQuiz(ok ? 'ok' : 'bad');
     setTimeout(() => {
       quiz.busy = false;
       quiz.i++;
       quiz.input = '';
-      if (quiz.i < QUIZ_LEN) renderQuiz(); else finishQuiz();
+      if (quiz.i < QUIZ_LEN) renderQuiz();
+      else finishTask(quiz.probs.map(p => ({
+        ok: p.ans === p.res,
+        text: p.ans === p.res ? `${p.a} ${p.op} ${p.b} = ${p.res} ✓` : `${p.a} ${p.op} ${p.b} = ${p.ans} ✗  (správne je ${p.res})`,
+      })));
     }, 700);
   }
 
-  function finishQuiz() {
-    const good = quiz.probs.filter(p => p.ans === p.res).length;
-    const all = good === QUIZ_LEN;
+  function feedbackSound(ok) {
+    if (ok) audio.preview(chosenCats()[0].voice, 79); else audio.miss(audio.ui);
+  }
+
+  // ===== Ručičkové hodiny =====
+  // Čas na ciferníku = minúty od 12:00 (0..719), vždy po 5 minútach.
+  const clockCv = $('#clock-cv');
+  const TAU = Math.PI * 2;
+  const fmtHM = (h, m) => `${h}:${String(m).padStart(2, '0')}`;
+  const onDial = (h, m) => (h % 12) * 60 + m;
+  const dialHM = v => [Math.floor(v / 60) || 12, v % 60];
+
+  /** 3 rôzne časy, hodiny 1–23 (aj popoludní, napr. 20:30), minúty po 5. */
+  function makeClockProbs() {
+    const seen = new Set(), out = [];
+    while (out.length < CLOCK_LEN) {
+      const h = 1 + rand(23), m = rand(12) * 5;
+      if (seen.has(onDial(h, m))) continue;
+      seen.add(onDial(h, m));
+      out.push({ h, m, set: null, done: false });
+    }
+    return out;
+  }
+
+  function startClock() {
+    clk = { probs: makeClockProbs(), i: 0, cur: 0, drag: null, busy: false, ghost: null };
+    limitCard('clock');
+    nextClock();
+  }
+
+  function nextClock() {
+    const p = clk.probs[clk.i];
+    // ručičky začínajú na náhodnom čase, nie na správnom
+    do { clk.cur = rand(144) * 5; } while (clk.cur === onDial(p.h, p.m));
+    clk.ghost = null;
+    renderClock();
+  }
+
+  function renderClock(state) {
+    const p = clk.probs[clk.i];
+    $('#clock-dots').innerHTML = dots(clk.probs, clk.i, q => q.set === onDial(q.h, q.m));
+    $('#clock-label').textContent = `Hodiny ${clk.i + 1} z ${CLOCK_LEN}`;
+    const t = $('#clock-target');
+    t.textContent = fmtHM(p.h, p.m);
+    t.className = 'clock-target' + (state ? ' ' + state : '');
+    drawClock();
+  }
+
+  // Mačičkovské hodiny: ciferník je mačacia hlava s ušami, fúzmi, labkami, chvostom a nosíkom v strede.
+  const CAT_FUR = '#f4a24c', CAT_DARK = '#c9772a', CAT_LINE = '#6b3d1a', CAT_EAR = '#ffb3c7';
+  let clockGeo = { cx: 0, cy: 0, R: 1 };
+
+  function drawClock() {
+    const size = Math.round(Math.max(200, Math.min(290, window.innerWidth - 90, window.innerHeight * 0.42)));
+    const g = prepCanvas(clockCv, size, size);
+    const R = size * 0.37, cx = size / 2, cy = size * 0.53;
+    clockGeo = { cx, cy, R };
+    g.lineJoin = 'round'; g.lineCap = 'round';
+
+    // chvost (vpravo dole, za hlavou)
+    g.beginPath();
+    g.moveTo(cx + R * 0.55, cy + R * 0.8);
+    g.bezierCurveTo(cx + R * 1.45, cy + R * 1.05, cx + R * 1.5, cy + R * 0.1, cx + R * 1.22, cy - R * 0.15);
+    g.lineWidth = R * 0.2; g.strokeStyle = CAT_LINE; g.stroke();
+    g.lineWidth = R * 0.13; g.strokeStyle = CAT_FUR; g.stroke();
+
+    // uši
+    for (const s of [-1, 1]) {
+      const ear = (k, col) => {
+        g.beginPath();
+        g.moveTo(cx + s * R * 0.35 * k + s * R * (1 - k) * 0.55, cy - R * (0.78 + (1 - k) * 0.12));
+        g.lineTo(cx + s * R * 0.78, cy - R * (0.6 + 0.62 * k));
+        g.lineTo(cx + s * R * (0.98 - (1 - k) * 0.1), cy - R * (0.3 + (1 - k) * 0.2));
+        g.closePath();
+        g.fillStyle = col; g.fill();
+        if (k === 1) { g.lineWidth = 4; g.strokeStyle = CAT_LINE; g.stroke(); }
+      };
+      ear(1, CAT_FUR);
+      ear(0.55, CAT_EAR);
+    }
+
+    // labky dole
+    for (const s of [-1, 1]) {
+      const px = cx + s * R * 0.45, py = cy + R * 0.98;
+      g.beginPath(); g.ellipse(px, py, R * 0.24, R * 0.15, 0, 0, TAU);
+      g.fillStyle = CAT_FUR; g.fill(); g.lineWidth = 3; g.strokeStyle = CAT_LINE; g.stroke();
+      g.fillStyle = CAT_EAR;
+      for (const t of [-1, 0, 1]) { g.beginPath(); g.arc(px + t * R * 0.09, py + R * 0.03, R * 0.035, 0, TAU); g.fill(); }
+    }
+
+    // hlava = ciferník
+    g.beginPath(); g.arc(cx, cy, R, 0, TAU);
+    g.fillStyle = '#fffaf2'; g.fill();
+    g.lineWidth = R * 0.07; g.strokeStyle = CAT_FUR; g.stroke();
+    g.beginPath(); g.arc(cx, cy, R + R * 0.035, 0, TAU);
+    g.lineWidth = 3; g.strokeStyle = CAT_LINE; g.stroke();
+    // pásiky na čele (ako tigrovaná mačka)
+    g.strokeStyle = CAT_DARK; g.lineWidth = R * 0.045;
+    for (const s of [-1, 0, 1]) {
+      g.beginPath();
+      g.moveTo(cx + s * R * 0.16, cy - R * 1.03);
+      g.lineTo(cx + s * R * 0.13, cy - R * 0.93);
+      g.stroke();
+    }
+
+    // fúzy (mimo ciferníka, aby nezakrývali čísla)
+    g.strokeStyle = CAT_LINE; g.lineWidth = 2.2;
+    for (const s of [-1, 1]) {
+      for (const k of [-1, 0, 1]) {
+        g.beginPath();
+        g.moveTo(cx + s * R * 1.06, cy + R * 0.12 + k * R * 0.11);
+        g.lineTo(cx + s * R * 1.32, cy + R * 0.06 + k * R * 0.2);
+        g.stroke();
+      }
+    }
+
+    // čiarky (minúty) a čísla
+    for (let i = 0; i < 60; i++) {
+      const a = (i / 60) * TAU, big = i % 5 === 0;
+      const r1 = R * 0.93, r2 = R * (big ? 0.82 : 0.87);
+      g.beginPath();
+      g.moveTo(cx + Math.sin(a) * r1, cy - Math.cos(a) * r1);
+      g.lineTo(cx + Math.sin(a) * r2, cy - Math.cos(a) * r2);
+      g.lineWidth = big ? 3 : 1.4;
+      g.strokeStyle = big ? '#2b1d3a' : '#d8c9b8';
+      g.stroke();
+    }
+    g.fillStyle = '#2b1d3a';
+    g.font = `700 ${Math.round(R * 0.25)}px Fredoka, system-ui, sans-serif`;
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    for (let n = 1; n <= 12; n++) {
+      const a = (n / 12) * TAU, r = R * 0.66;
+      g.fillText(String(n), cx + Math.sin(a) * r, cy - Math.cos(a) * r + 1);
+    }
+
+    // správne ručičky (po chybe) ako priesvitný zelený tieň
+    if (clk.ghost != null) drawHands(g, cx, cy, R, clk.ghost, 'rgba(46,158,69,0.55)', 'rgba(46,158,69,0.55)');
+    drawHands(g, cx, cy, R, clk.cur, '#ff5f9e', '#7d6bd6');
+
+    // os ručičiek = ružový mačací nosík
+    const nr = R * 0.1;
+    g.beginPath();
+    g.moveTo(cx - nr, cy - nr * 0.55);
+    g.quadraticCurveTo(cx, cy - nr * 0.95, cx + nr, cy - nr * 0.55);
+    g.quadraticCurveTo(cx + nr * 0.2, cy + nr * 0.9, cx, cy + nr * 0.8);
+    g.quadraticCurveTo(cx - nr * 0.2, cy + nr * 0.9, cx - nr, cy - nr * 0.55);
+    g.closePath();
+    g.fillStyle = '#ff7aa8'; g.fill();
+    g.lineWidth = 2.5; g.strokeStyle = CAT_LINE; g.stroke();
+  }
+
+  function drawHands(g, cx, cy, R, v, hourCol, minCol) {
+    const ha = (v / 720) * TAU, ma = ((v % 60) / 60) * TAU;
+    // ručička so šípkou na konci
+    const hand = (a, len, w, col) => {
+      const sx = Math.sin(a), sy = -Math.cos(a);   // smer ručičky
+      const px = -sy, py = sx;                     // kolmica
+      const head = w * 2.6, half = w * 1.5;        // dĺžka a polovičná šírka šípky
+      const bx = cx + sx * (len - head), by = cy + sy * (len - head);
+      g.beginPath(); g.moveTo(cx, cy); g.lineTo(bx, by);
+      g.lineCap = 'round'; g.lineWidth = w; g.strokeStyle = col; g.stroke();
+      g.beginPath();
+      g.moveTo(cx + sx * len, cy + sy * len);
+      g.lineTo(bx + px * half, by + py * half);
+      g.lineTo(bx - px * half, by - py * half);
+      g.closePath();
+      g.lineJoin = 'round'; g.lineWidth = w * 0.4; g.fillStyle = col; g.fill(); g.stroke();
+    };
+    hand(ma, R * 0.8, R * 0.055, minCol);  // minútová: dlhá, fialová
+    hand(ha, R * 0.5, R * 0.085, hourCol); // hodinová: krátka, ružová
+  }
+
+  function setClock(v) {
+    v = ((v % 720) + 720) % 720;
+    if (v === clk.cur) return;
+    clk.cur = v;
+    audio.blip();
+    drawClock();
+  }
+
+  // ťahanie ručičiek: chytí sa tá, ktorá je bližšie k prstu
+  function clockPtr(e) {
+    const r = clockCv.getBoundingClientRect();
+    const x = e.clientX - r.left - clockGeo.cx, y = e.clientY - r.top - clockGeo.cy;
+    let a = Math.atan2(x, -y);
+    if (a < 0) a += TAU;
+    return { a, d: Math.hypot(x, y) / clockGeo.R };
+  }
+  const angDist = (a, b) => { const d = Math.abs(a - b) % TAU; return Math.min(d, TAU - d); };
+
+  function dragClock(p) {
+    const m0 = clk.cur % 60, h0 = Math.floor(clk.cur / 60);
+    if (clk.drag === 'm') {
+      const m = (Math.round((p.a / TAU) * 12) % 12) * 5;
+      let h = h0;
+      if (m - m0 < -30) h++;      // prešla cez 12 dopredu → ďalšia hodina
+      else if (m - m0 > 30) h--;  // cez 12 dozadu
+      setClock(h * 60 + m);
+    } else {
+      const h = Math.round((p.a / TAU) * 12 - m0 / 60);
+      setClock(h * 60 + m0);
+    }
+  }
+
+  clockCv.addEventListener('pointerdown', e => {
+    if (!clk || clk.busy) return;
+    audio.init();
+    const p = clockPtr(e);
+    const dh = angDist(p.a, (clk.cur / 720) * TAU), dm = angDist(p.a, ((clk.cur % 60) / 60) * TAU);
+    clk.drag = Math.abs(dh - dm) < 0.35 ? (p.d < 0.62 ? 'h' : 'm') : dh < dm ? 'h' : 'm';
+    try { clockCv.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    dragClock(p);
+    e.preventDefault();
+  });
+  clockCv.addEventListener('pointermove', e => { if (clk && clk.drag && !clk.busy) dragClock(clockPtr(e)); });
+  const endDrag = () => { if (clk) clk.drag = null; };
+  clockCv.addEventListener('pointerup', endDrag);
+  clockCv.addEventListener('pointercancel', endDrag);
+
+  $('#btn-clock-ok').addEventListener('click', () => {
+    if (!clk || clk.busy) return;
+    audio.init();
+    const p = clk.probs[clk.i];
+    p.set = clk.cur;
+    p.done = true;
+    const ok = clk.cur === onDial(p.h, p.m);
+    feedbackSound(ok);
+    clk.busy = true;
+    if (!ok) clk.ghost = onDial(p.h, p.m); // ukáž, kde mali byť ručičky
+    renderClock(ok ? 'ok' : 'bad');
+    setTimeout(() => {
+      clk.busy = false;
+      clk.i++;
+      if (clk.i < CLOCK_LEN) nextClock();
+      else finishTask(clk.probs.map(q => {
+        const good = q.set === onDial(q.h, q.m);
+        const [sh, sm] = dialHM(q.set);
+        return { ok: good, text: good ? `🕐 ${fmtHM(q.h, q.m)} ✓` : `🕐 ${fmtHM(q.h, q.m)} ✗  (na hodinách bolo ${fmtHM(sh, sm)})` };
+      }));
+    }, ok ? 700 : 1600);
+  });
+
+  // ===== Vyhodnotenie =====
+  function finishTask(results) {
+    const total = results.length;
+    const good = results.filter(r => r.ok).length;
+    const all = good === total;
     $('#done-icon').textContent = all ? '🎉' : '🙀';
-    $('#done-title').textContent = all ? `Výborne! ${good} z ${QUIZ_LEN}` : `${good} z ${QUIZ_LEN} správne`;
+    $('#done-title').textContent = all ? `Výborne! ${good} z ${total}` : `${good} z ${total} správne`;
     $('#done-text').textContent = all
       ? `Máš ďalších ${LIMIT_MIN} minút.`
-      : `Treba mať všetkých ${QUIZ_LEN} správne. Skús ďalších ${QUIZ_LEN} príkladov.`;
+      : task === 'clock'
+        ? `Treba mať všetky ${CLOCK_LEN} hodiny správne. Skús ďalšie ${CLOCK_LEN}.`
+        : `Treba mať všetkých ${QUIZ_LEN} správne. Skús ďalších ${QUIZ_LEN} príkladov.`;
     const rev = $('#done-review');
     rev.innerHTML = '';
     if (!all) {
-      for (const p of quiz.probs) {
+      for (const r of results) {
         const li = document.createElement('li');
-        const ok = p.ans === p.res;
-        li.className = ok ? 'ok' : 'bad';
-        li.textContent = ok ? `${p.a} ${p.op} ${p.b} = ${p.res} ✓` : `${p.a} ${p.op} ${p.b} = ${p.ans} ✗  (správne je ${p.res})`;
+        li.className = r.ok ? 'ok' : 'bad';
+        li.textContent = r.text;
         rev.append(li);
       }
     }
-    $('#btn-done').textContent = all ? '▶ Hrať ďalej' : `Ďalších ${QUIZ_LEN} príkladov`;
+    $('#btn-done').textContent = all ? '▶ Hrať ďalej' : task === 'clock' ? `Ďalšie ${CLOCK_LEN} hodiny` : `Ďalších ${QUIZ_LEN} príkladov`;
     $('#btn-done').dataset.ok = all ? '1' : '';
     limitCard('done');
     if (all) {
       store.timeLeft = LIMIT_MIN * 60;
+      delete store.limitTask; // nabudúce sa typ úlohy vyberie znova
       save();
       updateTimePill();
     }
   }
 
-  $('#btn-add-limit').addEventListener('click', () => { audio.init(); audio.blip(); startQuiz(); });
+  $('#btn-add-limit').addEventListener('click', () => { audio.init(); audio.blip(); startTask(); });
   $('#btn-done').addEventListener('click', () => {
     audio.blip();
-    if (!$('#btn-done').dataset.ok) { startQuiz(); return; }
+    if (!$('#btn-done').dataset.ok) { startTask(); return; } // rovnaký typ úlohy znova
     quiz = null;
+    clk = null;
     limitOpen = false;
     $('#limit').classList.add('hidden');
   });
+  window.addEventListener('resize', () => { if (clk && !$('#limit-clock').classList.contains('hidden')) drawClock(); });
 
   updateTimePill();
   if (store.timeLeft <= 0) openLimit(); // zatvorenie a otvorenie aplikácie limit neobíde
@@ -981,5 +1254,5 @@
   window.addEventListener('pageshow', e => { if (e.persisted) checkForUpdate(); });
 
   // Prístup pre ladenie z konzoly prehliadača (napr. macaciZbor.store.coins)
-  window.macaciZbor = { game, audio, store, save, syncGame };
+  window.macaciZbor = { game, audio, store, save, syncGame, limitState: () => ({ task, quiz, clk }) };
 })();

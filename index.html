@@ -130,7 +130,7 @@
           <li>Za body z pesničiek nakupuješ v <b>Obchode</b> jedlo, oblečenie, okuliare, obojky, vodítka a pelechy vo veľa farbách.</li>
           <li>Mačky po každej pesničke a časom <b>vyhladnú</b>. Nakŕm ich v Mačkách. Najedená mačka (nad 60 %) dá <b>+10 % bodov</b>, hladná (pod 25 %) o 15 % menej.</li>
           <li>Pozor na <b>prekŕmenie</b>: keď kŕmiš plnú mačku, rýchlo priberie. Prejedená mačka sa ťažko hýbe a tučná dá o 10 % menej bodov. Schudne len pohybom v pesničkách, postupne, za viac hier.</li>
-          <li><b>Limit</b>: aplikácia sa dá mať zapnutú 10 minút (čas vidíš v menu vľavo hore). Potom treba vyriešiť 5 príkladov na sčítanie a odčítanie do 20. Keď sú všetky správne, pribudne ďalších 10 minút.</li>
+          <li><b>Limit</b>: aplikácia sa dá mať zapnutú 6 minút (čas vidíš v menu vľavo hore). Potom príde úloha: buď 5 príkladov na sčítanie a odčítanie do 20, alebo 3× nastaviť ručičkové hodiny. Keď je všetko správne, pribudne ďalších 6 minút.</li>
           <li>Mačku môžeš <b>premenovať</b> ceruzkou ✏️ v jej detaile.</li>
           <li>Na počítači: <kbd>A</kbd> <kbd>D</kbd> ľavá mačka, <kbd>←</kbd> <kbd>→</kbd> pravá mačka. Myš ovláda mačku na strane, kde je kurzor. <kbd>Esc</kbd> = pauza.</li>
         </ul>
@@ -166,14 +166,23 @@
         </div>
       </div>
     </section>
-    <!-- Limit hrania: po 10 minútach treba vyriešiť 5 príkladov -->
+    <!-- Limit hrania: po 6 minútach príklady alebo ručičkové hodiny -->
     <section id="limit" class="screen modal hidden" aria-live="polite">
       <div class="card" id="limit-wall">
         <div class="limit-big">⏰</div>
         <h2>Čas vypršal</h2>
         <div class="limit-time">Limit: <span id="limit-min"></span> minút</div>
-        <p class="limit-text">Aplikácia bola zapnutá 10 minút. Vyrieš 5 príkladov a dostaneš ďalších 10 minút.</p>
+        <p class="limit-text" id="limit-text"></p>
+        <p class="limit-task" id="limit-task"></p>
         <button class="btn primary" id="btn-add-limit">➕ Pridať limit</button>
+      </div>
+      <div class="card hidden" id="limit-clock">
+        <div class="quiz-dots" id="clock-dots"></div>
+        <p class="limit-text" id="clock-label"></p>
+        <div class="clock-ask">Nastav na hodinách <span class="clock-target" id="clock-target"></span></div>
+        <canvas id="clock-cv" aria-label="Ručičkové hodiny – ťahaj ručičky"></canvas>
+        <p class="clock-hint">Ťahaj ručičky prstom: <b class="h">krátka = hodiny</b>, <b class="m">dlhá = minúty</b></p>
+        <button class="btn primary" id="btn-clock-ok">✓ Hotovo</button>
       </div>
       <div class="card hidden" id="limit-quiz">
         <div class="quiz-dots" id="quiz-dots"></div>

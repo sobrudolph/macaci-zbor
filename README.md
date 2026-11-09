@@ -7,7 +7,11 @@ Každú mačku ovládaš jedným palcom. Keď pochúťku chytíš, mačka zamňa
 - **22 pesničiek v 4 obtiažnostiach:** pôvodné skladby (aj rap, rock a metal) a melódie, ktoré sú voľné dielo (Hviezdička, Óda na radosť, Pre Elišku, Kánon, Brat Jakub, Zvončeky, Malá nočná hudba, Jar, V jaskyni horského kráľa, Turecký pochod, Kankán, Na krásnom modrom Dunaji).
 - **Obchod:** za body z pesničiek kupuješ jedlo (granule, konzervy, mlieko, mlsky) a viac ako 50 druhov oblečenia, okuliarov, obojkov, vodítok a pelechov, každý vo veľa farbách.
 - **Starostlivosť:** mačky časom a po pesničkách vyhladnú. Najedené mačky dajú bonus k bodom, hladné menej. Prekŕmené mačky rýchlo priberú a ťažko sa hýbu. Schudnú len pohybom v pesničkách, postupne za viac hier.
-- **Limit 10 minút:** po 10 minútach zapnutej aplikácie treba vyriešiť 5 príkladov (sčítanie a odčítanie do 20). Keď sú všetky správne, pribudne ďalších 10 minút, inak prídu ďalšie príklady. Dĺžka limitu je `LIMIT_MIN` v `js/main.js`.
+- **Limit 6 minút:** po 6 minútach zapnutej aplikácie príde úloha, náhodne jedna z dvoch (nemiešajú sa):
+  - 5 príkladov na sčítanie a odčítanie do 20,
+  - 3× nastaviť ručičkové hodiny na zadaný čas (po 5 minútach, aj popoludňajšie časy ako 20:30).
+
+  Keď je všetko správne, pribudne ďalších 6 minút, inak príde nové kolo rovnakej úlohy. Dĺžka limitu je `LIMIT_MIN` v `js/main.js`.
 - Funguje v prehliadači na mobile aj na počítači a nič sa neinštaluje.
 - Grafika aj zvuk sa generujú kódom (Canvas a Web Audio API). Hra nepoužíva žiadne obrázky ani zvukové súbory, takže pri nich nehrozia problémy s licenciami.
 
