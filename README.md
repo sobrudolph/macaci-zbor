@@ -7,7 +7,9 @@ Každú mačku ovládaš jedným palcom. Keď pochúťku chytíš, mačka zamňa
 - **22 pesničiek v 4 obtiažnostiach:** pôvodné skladby (aj rap, rock a metal) a melódie, ktoré sú voľné dielo (Hviezdička, Óda na radosť, Pre Elišku, Kánon, Brat Jakub, Zvončeky, Malá nočná hudba, Jar, V jaskyni horského kráľa, Turecký pochod, Kankán, Na krásnom modrom Dunaji).
 - **Obchod:** za body z pesničiek kupuješ jedlo (granule, konzervy, mlieko, mlsky) a viac ako 50 druhov oblečenia, okuliarov, obojkov, vodítok a pelechov, každý vo veľa farbách.
 - **Starostlivosť:** mačky časom a po pesničkách vyhladnú. Najedené mačky dajú bonus k bodom, hladné menej. Prekŕmené mačky rýchlo priberú a ťažko sa hýbu. Schudnú len pohybom v pesničkách, postupne za viac hier.
-- **Dve hry:** Mačací zbor (rytmická hra) a **Mačacia škola** – 10 otázok (striedajú sa príklady do 20 a čítanie času z hodín), vždy 3 možnosti a len jedna správna. Za správne odpovede stúpa vybranej mačičke IQ od 0 do 150.
+- **Diktát:** mačička pomaly 2× nadiktuje po slovensky jednu vetu z 5 slov (2. ročník ZŠ – veľké písmená, dĺžne, mäkčene, otázky),
+  dieťa ju napíše a na konci sa opraví s vysvetlením chyby. Za vetu bez chyby +3 IQ, s chybou nič. Vety sú v `js/dictation-sentences.js`.
+- **Hry:** Mačací zbor (rytmická hra), Diktát a **Mačacia škola** – 10 otázok (striedajú sa príklady do 20 a čítanie času z hodín), vždy 3 možnosti a len jedna správna. Za správne odpovede stúpa vybranej mačičke IQ od 0 do 150.
 - **Limit 6 minút:** po 6 minútach zapnutej aplikácie príde úloha, jedna z dvoch (nemiešajú sa):
   - 5 príkladov na sčítanie a odčítanie do 20,
   - 3× nastaviť ručičkové hodiny na zadaný čas (po 5 minútach, aj popoludňajšie časy ako 20:30).

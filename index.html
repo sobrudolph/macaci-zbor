@@ -55,10 +55,15 @@
           <span class="gc-title">Mačací zbor</span>
           <span class="gc-sub">Chytaj pochúťky do rytmu a mačky zaspievajú pesničku.</span>
         </button>
-        <button class="game-card" data-go="school" style="--c1:#5cc16a;--c2:#2f80ed">
+        <button class="game-card" data-go="school" data-mode="school" style="--c1:#5cc16a;--c2:#2f80ed">
           <span class="gc-icon">🧠</span>
           <span class="gc-title">Mačacia škola</span>
           <span class="gc-sub">Príklady a hodiny – vyber správnu odpoveď z troch. Mačičke stúpa IQ!</span>
+        </button>
+        <button class="game-card" data-go="school" data-mode="dictation" style="--c1:#ffb02e;--c2:#e0475b">
+          <span class="gc-icon">✏️</span>
+          <span class="gc-title">Diktát</span>
+          <span class="gc-sub">Mačička ti nadiktuje vetu a ty ju napíšeš bez chyby. Za každú správnu vetu jej stúpne IQ!</span>
         </button>
       </div>
     </section>
@@ -67,10 +72,10 @@
     <section id="screen-school" class="screen panel hidden">
       <header class="bar">
         <button class="icon-btn" data-go="games" aria-label="Späť">←</button>
-        <h2>Mačacia škola</h2>
+        <h2 id="school-title">Mačacia škola</h2>
         <span class="wallet"></span>
       </header>
-      <p class="hint">S ktorou mačičkou sa chceš učiť? Za každú správnu odpoveď jej stúpne IQ (od 0 až do 150).</p>
+      <p class="hint" id="school-hint">S ktorou mačičkou sa chceš učiť? Za každú správnu odpoveď jej stúpne IQ (od 0 až do 150).</p>
       <div id="school-grid" class="grid"></div>
     </section>
 
@@ -107,6 +112,47 @@
           <div class="btn-row">
             <button class="btn" data-go="school">Iná mačička</button>
             <button class="btn" data-go="menu">Do menu</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Diktát -->
+    <section id="screen-dictation" class="screen panel hidden">
+      <header class="bar">
+        <button class="icon-btn" data-go="school" aria-label="Späť">←</button>
+        <h2>Diktát</h2>
+        <span class="pill" id="dict-progress"></span>
+      </header>
+      <div class="lesson">
+        <div class="lesson-cat">
+          <canvas id="dict-cat"></canvas>
+          <div class="lesson-iq">
+            <b id="dict-name"></b>
+            <span id="dict-iq"></span>
+            <div class="iqbar"><i id="dict-iqbar"></i></div>
+          </div>
+          <span class="iq-plus" id="dict-plus">+3 IQ</span>
+        </div>
+        <div class="lesson-card" id="dict-card">
+          <div class="lesson-ask">Počúvaj a napíš vetu bez chyby.</div>
+          <button class="btn primary dict-play" id="btn-dict-play">▶ Prehrať vetu</button>
+          <p class="dict-warn hidden" id="dict-warn"></p>
+          <input id="dict-input" class="dict-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off"
+                 spellcheck="false" enterkeyhint="done" placeholder="Sem napíš vetu…" aria-label="Napíš vetu">
+          <div class="dict-keys" id="dict-keys"></div>
+          <button class="btn dict-check" id="btn-dict-check">✓ Skontrolovať</button>
+          <div class="dict-result hidden" id="dict-result">
+            <div class="dict-verdict" id="dict-verdict"></div>
+            <div class="dict-diff" id="dict-diff"></div>
+            <div class="dict-right hidden" id="dict-right"></div>
+            <p class="end-iq" id="dict-iqline"></p>
+            <div class="res-earn" id="dict-earn"></div>
+            <button class="btn primary" id="btn-dict-again">Nová veta ▶</button>
+            <div class="btn-row">
+              <button class="btn" data-go="school">Iná mačička</button>
+              <button class="btn" data-go="menu">Do menu</button>
+            </div>
           </div>
         </div>
       </div>
@@ -200,6 +246,7 @@
           <li>Mačky po každej pesničke a časom <b>vyhladnú</b>. Nakŕm ich v Mačkách. Najedená mačka (nad 60 %) dá <b>+10 % bodov</b>, hladná (pod 25 %) o 15 % menej.</li>
           <li>Pozor na <b>prekŕmenie</b>: keď kŕmiš plnú mačku, rýchlo priberie. Prejedená mačka sa ťažko hýbe a tučná dá o 10 % menej bodov. Schudne len pohybom v pesničkách, postupne, za viac hier.</li>
           <li><b>Limit</b>: aplikácia sa dá mať zapnutú 6 minút (čas vidíš v menu vľavo hore). Potom príde úloha: buď 5 príkladov na sčítanie a odčítanie do 20, alebo 3× nastaviť ručičkové hodiny. Úlohy sa striedajú, ale častejšie prídu tie, v ktorých robíš chyby. Keď je všetko správne, pribudne ďalších 6 minút.</li>
+          <li><b>Diktát</b> (tretia hra): mačička pomaly 2× prečíta vetu z 5 slov, ty ju napíšeš a na konci ti ju opraví. Za vetu bez chyby jej stúpne IQ (+3), s chybou IQ nedostane.</li>
           <li><b>Mačacia škola</b> (druhá hra v ponuke Hrať): 10 otázok – príklady a hodiny, vždy 3 možnosti a len jedna je správna. Za každú správnu odpoveď stúpne vybranej mačičke <b>IQ</b> (od 0 do 150).</li>
           <li>Mačku môžeš <b>premenovať</b> ceruzkou ✏️ v jej detaile.</li>
           <li>Na počítači: <kbd>A</kbd> <kbd>D</kbd> ľavá mačka, <kbd>←</kbd> <kbd>→</kbd> pravá mačka. Myš ovláda mačku na strane, kde je kurzor. <kbd>Esc</kbd> = pauza.</li>
@@ -276,6 +323,7 @@
   <script src="js/cats.js"></script>
   <script src="js/shop.js"></script>
   <script src="js/game.js"></script>
+  <script src="js/dictation-sentences.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

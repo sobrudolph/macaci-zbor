@@ -151,7 +151,7 @@
   }
 
   // ---------- Obrazovky ----------
-  const SCREENS = ['menu', 'games', 'songs', 'school', 'lesson', 'cats', 'cat', 'shop', 'help', 'pause', 'result'];
+  const SCREENS = ['menu', 'games', 'songs', 'school', 'lesson', 'dictation', 'cats', 'cat', 'shop', 'help', 'pause', 'result'];
   let screen = 'menu';
   function show(name) {
     screen = name;
@@ -165,6 +165,7 @@
     if (name === 'songs') renderSongs();
     if (name === 'school') renderSchool();
     if (name !== 'lesson') lessonStop();
+    if (name !== 'dictation') dictStop();
     if (name === 'cats') renderCats();
     if (name === 'shop') renderShop();
     if (name === 'cat') { $('#rename').classList.add('hidden'); renderCatDetail(); }
@@ -178,6 +179,7 @@
     audio.init();
     audio.blip();
     if (b.dataset.go === 'shop' && b.dataset.model) shopModel = b.dataset.model;
+    if (b.dataset.mode) schoolMode = b.dataset.mode; // Mačacia škola alebo Diktát
     go(b.dataset.go);
   });
 
@@ -784,6 +786,7 @@
     if (limitOpen) return;
     limitOpen = true;
     if (game.mode === 'play') doPause(); // pesnička počká, po splnení úloh pokračuje
+    if (window.speechSynthesis) window.speechSynthesis.cancel(); // diktát stíchne
     // typ úlohy sa uloží, aby sa nedal "prehodiť" zatvorením aplikácie
     if (!TASK_TYPES.includes(store.limitTask)) {
       store.limitTask = pickTask();
@@ -1222,7 +1225,13 @@
   }
   const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = rand(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
+  let schoolMode = 'school'; // 'school' = Mačacia škola, 'dictation' = Diktát
   function renderSchool() {
+    const dictMode = schoolMode === 'dictation';
+    $('#school-title').textContent = dictMode ? 'Diktát' : 'Mačacia škola';
+    $('#school-hint').textContent = dictMode
+      ? 'S ktorou mačičkou chceš písať diktát? Za každú vetu bez chyby jej stúpne IQ (od 0 až do 150).'
+      : 'S ktorou mačičkou sa chceš učiť? Za každú správnu odpoveď jej stúpne IQ (od 0 až do 150).';
     const grid = $('#school-grid');
     grid.innerHTML = '';
     for (const cat of CATS) {
@@ -1234,7 +1243,7 @@
       b.querySelector('.iq-txt').textContent = `IQ ${v}`;
       b.querySelector('.iqbar i').style.width = Math.max(2, (v / IQ_MAX) * 100) + '%';
       paintCat(b.querySelector('canvas'), cat, 84, outfitOf(cat.id), 'full');
-      b.addEventListener('click', () => { audio.init(); audio.blip(); startLesson(cat.id); });
+      b.addEventListener('click', () => { audio.init(); audio.blip(); if (dictMode) startDictation(cat.id); else startLesson(cat.id); });
       grid.append(b);
     }
   }
@@ -1452,6 +1461,346 @@
 
   $('#btn-lesson-again').addEventListener('click', () => { audio.init(); audio.blip(); startLesson(lessonCatId); });
 
+  // ---------- Diktát: jedna hra = jedna veta z 5 slov, na konci sa opraví ----------
+  const DICT_IQ = 3;           // IQ za vetu bez chyby (s chybou IQ nepribudne)
+  const DICT_COINS = 200;      // body na nákupy za vetu bez chyby
+  const DICT_RATE = 0.62;      // pomalé diktovanie
+  const DICT_REPEATS = 2;      // koľkokrát za sebou sa veta prečíta, potom sa dá pustiť znova
+
+  const speech = window.speechSynthesis || null;
+  let skVoice = null, voicesLoaded = false;
+  function pickVoice() {
+    if (!speech) return;
+    const vs = speech.getVoices();
+    if (vs.length) voicesLoaded = true;
+    skVoice = vs.find(v => /^sk([-_]|$)/i.test(v.lang)) || null;
+  }
+  if (speech) {
+    pickVoice();
+    if (speech.addEventListener) speech.addEventListener('voiceschanged', pickVoice);
+    else speech.onvoiceschanged = pickVoice;
+  }
+
+  let dict = null;
+  let dictCatId = null;
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  /** Vyberie jednu vetu, ktorá nebola nedávno (otázky aj oznamovacie vety sa striedajú náhodne). */
+  function pickSentence() {
+    const recent = Array.isArray(store.dictRecent) ? store.dictRecent : [];
+    const all = DICTATION_SENTENCES.map((t, i) => i);
+    const fresh = all.filter(i => !recent.includes(i));
+    const i = (fresh.length ? fresh : all)[rand((fresh.length ? fresh : all).length)];
+    store.dictRecent = [...recent, i].slice(-40);
+    return { text: DICTATION_SENTENCES[i], typed: null, ok: null };
+  }
+
+  function startDictation(catId) {
+    dictStop();
+    dictCatId = catId;
+    dict = { catId, items: [pickSentence()], i: 0, startIq: iqOf(catId), speaking: false, pass: 0, token: 0,
+      checked: false, mood: null, moodT: 0, t: 0, raf: 0, shift: false };
+    save();
+    show('dictation');
+    updateDictCat();
+    renderDictItem();
+    dictLoop();
+    dictate(); // spustené ťuknutím → prehliadač dovolí hovoriť
+  }
+
+  function dictStop() {
+    if (dict && dict.raf) cancelAnimationFrame(dict.raf);
+    if (speech) speech.cancel();
+    dict = null;
+  }
+
+  function updateDictCat() {
+    const cat = catById(dictCatId);
+    const v = iqOf(cat.id);
+    $('#dict-name').textContent = cat.name;
+    $('#dict-iq').textContent = `IQ ${v} / ${IQ_MAX} · ${iqLabel(v)}`;
+    $('#dict-iqbar').style.width = Math.max(2, (v / IQ_MAX) * 100) + '%';
+  }
+
+  function renderDictItem() {
+    $('#dict-progress').textContent = '5 slov';
+    const inp = $('#dict-input');
+    inp.value = '';
+    inp.disabled = false;
+    $('#btn-dict-check').classList.remove('hidden');
+    $('#dict-keys').classList.remove('hidden');
+    $('#btn-dict-play').classList.remove('hidden');
+    $('#dict-result').classList.add('hidden');
+    dict.checked = false;
+    updatePlay();
+    const warn = $('#dict-warn');
+    if (!speech) { warn.textContent = 'Tento prehliadač nevie čítať nahlas, diktát tu nepôjde.'; warn.classList.remove('hidden'); }
+    else if (voicesLoaded && !skVoice) { warn.textContent = 'Na tomto zariadení chýba slovenský hlas, diktát môže znieť zvláštne.'; warn.classList.remove('hidden'); }
+    else warn.classList.add('hidden');
+  }
+
+  function updatePlay() {
+    const b = $('#btn-dict-play');
+    if (!dict) return;
+    b.disabled = dict.speaking;
+    b.textContent = dict.speaking ? `🔊 Diktujem… (${dict.pass}/${DICT_REPEATS})` : '▶ Prehrať vetu znova';
+  }
+
+  /** Prečíta jednu vetu nahlas; vráti sa, keď dočíta (alebo po bezpečnom čase, ak iPhone nezavolá onend). */
+  function sayOnce(text) {
+    return new Promise(res => {
+      if (!speech) { setTimeout(res, 400); return; }
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'sk-SK';
+      if (skVoice) u.voice = skVoice;
+      u.rate = DICT_RATE;
+      u.pitch = 1.05;
+      let done = false;
+      const fin = () => { if (!done) { done = true; clearTimeout(tm); res(); } };
+      const tm = setTimeout(fin, 3000 + text.length * 170);
+      u.onend = fin;
+      u.onerror = fin;
+      speech.speak(u);
+    });
+  }
+
+  /** Nadiktuje vetu pomaly 2× za sebou, potom sa dá znova pustiť tlačidlom. */
+  async function dictate() {
+    if (!dict || dict.speaking || dict.checked) return;
+    const token = ++dict.token;
+    const d = dict;
+    d.speaking = true;
+    if (speech) speech.cancel();
+    for (let k = 1; k <= DICT_REPEATS; k++) {
+      if (limitOpen) break; // vypršal čas – diktovanie skončí, po úlohách sa dá pustiť znova
+      d.pass = k;
+      updatePlay();
+      d.mood = 'talk'; d.moodT = 0;
+      await sayOnce(d.items[d.i].text);
+      if (dict !== d || d.token !== token) return;
+      d.mood = null;
+      if (k < DICT_REPEATS) await sleep(1500);
+      if (dict !== d || d.token !== token) return;
+    }
+    d.speaking = false;
+    updatePlay();
+  }
+
+  $('#btn-dict-play').addEventListener('click', () => { audio.init(); dictate(); });
+
+  // ----- tlačidlá s dĺžňami a mäkčeňmi (nie každá klávesnica ich má poruke) -----
+  const DICT_CHARS = ['á', 'é', 'í', 'ó', 'ú', 'ý', 'ä', 'ô', 'č', 'š', 'ž', 'ť', 'ď', 'ň', 'ľ', 'ĺ', 'ŕ', '?', '.'];
+  function renderDictKeys() {
+    const box = $('#dict-keys');
+    box.innerHTML = '';
+    const sh = document.createElement('button');
+    sh.type = 'button';
+    sh.className = 'dk shift' + (dict && dict.shift ? ' on' : '');
+    sh.textContent = '⇧';
+    sh.setAttribute('aria-label', 'Veľké písmeno');
+    box.append(sh);
+    for (const ch of DICT_CHARS) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'dk';
+      b.dataset.ch = ch;
+      b.textContent = dict && dict.shift ? ch.toUpperCase() : ch;
+      box.append(b);
+    }
+  }
+  renderDictKeys();
+  function insertAtCaret(inp, text) {
+    const a = inp.selectionStart ?? inp.value.length, b = inp.selectionEnd ?? inp.value.length;
+    inp.value = inp.value.slice(0, a) + text + inp.value.slice(b);
+    inp.selectionStart = inp.selectionEnd = a + text.length;
+  }
+  function dictKey(btn) {
+    if (!dict || dict.checked) return;
+    const inp = $('#dict-input');
+    if (btn.classList.contains('shift')) { dict.shift = !dict.shift; renderDictKeys(); inp.focus(); return; }
+    insertAtCaret(inp, dict.shift ? btn.dataset.ch.toUpperCase() : btn.dataset.ch);
+    if (dict.shift) { dict.shift = false; renderDictKeys(); }
+    inp.focus();
+  }
+  // preventDefault, aby sa na iPhone nezatvorila klávesnica
+  const keysBox = $('#dict-keys');
+  keysBox.addEventListener('touchstart', e => { const b = e.target.closest('.dk'); if (!b) return; e.preventDefault(); dictKey(b); }, { passive: false });
+  keysBox.addEventListener('mousedown', e => { const b = e.target.closest('.dk'); if (!b) return; e.preventDefault(); dictKey(b); });
+
+  // ----- kontrola a oprava chýb -----
+  const normSpaces = t => t.normalize('NFC').replace(/\s+/g, ' ').trim();
+  const stripMarks = t => t.normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+  /** Čo je zle v jednom slove (pre deti zrozumiteľne). */
+  function wordHint(typed, right) {
+    const end = w => (/[.?!,]$/.test(w) ? w.slice(-1) : '');
+    const core = w => w.replace(/[.?!,]+$/, '');
+    const tips = [];
+    const tc = core(typed), rc = core(right);
+    if (end(typed) !== end(right)) tips.push(end(right) === '?' ? 'na konci otáznik' : end(right) === '.' ? 'na konci bodka' : 'bez znamienka');
+    if (tc !== rc) {
+      if (tc.toLowerCase() === rc.toLowerCase()) tips.push(rc[0] !== rc[0].toLowerCase() ? 'veľké písmeno' : 'malé písmeno');
+      else if (stripMarks(tc).toLowerCase() === stripMarks(rc).toLowerCase()) {
+        const marks = new Set(), have = rc.normalize('NFD'), got = tc.normalize('NFD');
+        const count = (s, m) => (s.match(new RegExp(m, 'g')) || []).length;
+        if (count(have, '́') !== count(got, '́')) marks.add('dĺžeň');
+        if (count(have, '̌') !== count(got, '̌')) marks.add('mäkčeň');
+        if (count(have, '̂') !== count(got, '̂')) marks.add('vokáň (ô)');
+        if (count(have, '̈') !== count(got, '̈')) marks.add('dve bodky (ä)');
+        if (tc.toLowerCase() !== tc && rc.toLowerCase() === rc) marks.add('malé písmeno');
+        if (tc[0] && rc[0] && (tc[0] === tc[0].toLowerCase()) !== (rc[0] === rc[0].toLowerCase())) marks.add(rc[0] === rc[0].toLowerCase() ? 'malé písmeno' : 'veľké písmeno');
+        tips.push(...(marks.size ? marks : ['diakritika']));
+      } else tips.push('pravopis');
+    }
+    return tips.join(', ');
+  }
+
+  /** Porovná slová (najdlhšia spoločná postupnosť) a vráti zoznam krokov: ok / zlé / navyše / chýba. */
+  function diffWords(typed, right) {
+    const a = typed, b = right, n = a.length, m = b.length;
+    const L = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+    for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) L[i][j] = a[i] === b[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+    const ops = [];
+    let i = 0, j = 0, extra = [], miss = [];
+    const flush = () => {
+      while (extra.length && miss.length) ops.push({ k: 'bad', t: extra.shift(), r: miss.shift() });
+      for (const t of extra) ops.push({ k: 'extra', t });
+      for (const r of miss) ops.push({ k: 'miss', r });
+      extra = []; miss = [];
+    };
+    while (i < n && j < m) {
+      if (a[i] === b[j]) { flush(); ops.push({ k: 'ok', t: a[i] }); i++; j++; }
+      else if (L[i + 1][j] >= L[i][j + 1]) extra.push(a[i++]);
+      else miss.push(b[j++]);
+    }
+    while (i < n) extra.push(a[i++]);
+    while (j < m) miss.push(b[j++]);
+    flush();
+    return ops;
+  }
+
+  function popDict(text) {
+    const el = $('#dict-plus');
+    el.textContent = text;
+    el.classList.remove('show');
+    void el.offsetWidth;
+    el.classList.add('show');
+  }
+
+  function checkDict() {
+    if (!dict || dict.checked) return;
+    const inp = $('#dict-input');
+    const typed = normSpaces(inp.value);
+    if (!typed) { inp.focus(); toast('Najprv napíš vetu 🙂'); return; }
+    audio.init();
+    const item = dict.items[dict.i];
+    const right = normSpaces(item.text);
+    item.typed = typed;
+    item.ok = typed === right;
+    dict.checked = true;
+    dict.token++;
+    dict.speaking = false;
+    if (speech) speech.cancel();
+    inp.disabled = true;
+    inp.blur();
+    $('#btn-dict-check').classList.add('hidden');
+    $('#dict-keys').classList.add('hidden');
+    $('#btn-dict-play').classList.add('hidden');
+    const cat = catById(dict.catId);
+    const verdict = $('#dict-verdict');
+    const diff = $('#dict-diff');
+    diff.innerHTML = '';
+    if (item.ok) {
+      const before = iqOf(cat.id);
+      addIq(cat.id, DICT_IQ);
+      const gained = iqOf(cat.id) - before;
+      if (gained > 0) popDict(`+${gained} IQ`);
+      verdict.className = 'dict-verdict ok';
+      verdict.textContent = `Bez chyby! 🎉${gained > 0 ? ` ${cat.name} má +${gained} IQ.` : ''}`;
+      audio.preview(cat.voice, 79);
+      dict.mood = 'happy';
+      const s = document.createElement('span');
+      s.className = 'dw ok';
+      s.textContent = right;
+      diff.append(s);
+      $('#dict-right').classList.add('hidden');
+    } else {
+      const ops = diffWords(typed.split(' '), right.split(' '));
+      const nBad = ops.filter(o => o.k !== 'ok').length;
+      verdict.className = 'dict-verdict bad';
+      verdict.textContent = `Sú tam chyby (${nBad}). Pozri sa, čo treba opraviť:`;
+      for (const o of ops) {
+        const w = document.createElement('span');
+        if (o.k === 'ok') { w.className = 'dw ok'; w.textContent = o.t; }
+        else if (o.k === 'bad') {
+          w.className = 'dw bad';
+          w.innerHTML = '<s></s> <b></b><small></small>';
+          w.querySelector('s').textContent = o.t;
+          w.querySelector('b').textContent = o.r;
+          w.querySelector('small').textContent = wordHint(o.t, o.r);
+        } else if (o.k === 'extra') {
+          w.className = 'dw bad';
+          w.innerHTML = '<s></s><small>navyše</small>';
+          w.querySelector('s').textContent = o.t;
+        } else {
+          w.className = 'dw miss';
+          w.innerHTML = '<b></b><small>chýba</small>';
+          w.querySelector('b').textContent = o.r;
+        }
+        diff.append(w);
+      }
+      const r = $('#dict-right');
+      r.innerHTML = '<span>Správne:</span> <b></b>';
+      r.querySelector('b').textContent = right;
+      r.classList.remove('hidden');
+      audio.miss(audio.ui);
+      dict.mood = 'sad';
+    }
+    dict.moodT = 0;
+    // vyhodnotenie: IQ a body len za vetu bez chyby
+    const coins = item.ok ? DICT_COINS : 0;
+    store.coins += coins;
+    save();
+    updateDictCat();
+    updateWallets();
+    const now = iqOf(cat.id);
+    $('#dict-iqline').textContent = item.ok
+      ? `${cat.name}: IQ ${dict.startIq} → ${now}${now >= IQ_MAX ? ' · Génius! 🎓' : ''}`
+      : `${cat.name} tentoraz IQ nedostane. Skús ďalšiu vetu!`;
+    $('#dict-earn').innerHTML = coins ? `<div class="earn">+${price(coins)}</div><small>na nákupy</small>` : '';
+    $('#dict-progress').textContent = item.ok ? 'Bez chyby' : 'Oprava';
+    $('#dict-result').classList.remove('hidden');
+  }
+
+  $('#btn-dict-check').addEventListener('click', checkDict);
+  $('#dict-input').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); checkDict(); } });
+  $('#btn-dict-again').addEventListener('click', () => { audio.init(); audio.blip(); startDictation(dictCatId); });
+
+  // mačička pri diktovaní „hovorí“, pri správnej vete sa raduje, pri chybe smúti
+  function dictLoop() {
+    let last = performance.now();
+    const step = ts => {
+      if (!dict || screen !== 'dictation') return;
+      const dt = Math.min(0.05, (ts - last) / 1000);
+      last = ts;
+      dict.t += dt;
+      dict.moodT += dt;
+      const cat = catById(dict.catId);
+      const talk = dict.mood === 'talk';
+      const active = talk || (dict.mood && dict.moodT < 0.9);
+      paintCat($('#dict-cat'), cat, 96, outfitOf(cat.id), 'full', {
+        t: dict.t,
+        mouth: talk ? 0.25 + 0.25 * Math.abs(Math.sin(dict.t * 9)) : active && dict.mood === 'happy' ? 0.45 + 0.3 * Math.sin(dict.t * 18) : 0,
+        sad: active && dict.mood === 'sad',
+        blink: (dict.t % 3.4) < 0.12,
+        look: Math.sin(dict.t * 0.9) * 0.5,
+        noBed: true,
+      });
+      dict.raf = requestAnimationFrame(step);
+    };
+    dict.raf = requestAnimationFrame(step);
+  }
+
   // ---------- Výsledok ----------
   game.onEnd = r => {
     const prev = store.best[current.id] || { score: 0, stars: 0 };
@@ -1530,7 +1879,7 @@
   // Ikona na ploche iPhonu nechá hru „uspatú“ v pozadí. Keď sa k nej vrátiš,
   // over, či sa na GitHube niečo nezmenilo, a ak áno, načítaj novú verziu
   // (nie počas rozohranej pesničky).
-  const APP_FILES = ['./', 'css/style.css', 'js/songs.js', 'js/audio.js', 'js/cats.js', 'js/shop.js', 'js/game.js', 'js/main.js'];
+  const APP_FILES = ['./', 'css/style.css', 'js/songs.js', 'js/audio.js', 'js/cats.js', 'js/shop.js', 'js/game.js', 'js/dictation-sentences.js', 'js/main.js'];
   let fingerprint = null;
   let checking = false;
 
@@ -1558,5 +1907,5 @@
   window.addEventListener('pageshow', e => { if (e.persisted) checkForUpdate(); });
 
   // Prístup pre ladenie z konzoly prehliadača (napr. macaciZbor.store.coins)
-  window.macaciZbor = { game, audio, store, save, syncGame, limitState: () => ({ task, quiz, clk, lesson }) };
+  window.macaciZbor = { game, audio, store, save, syncGame, limitState: () => ({ task, quiz, clk, lesson, dict }) };
 })();
