@@ -151,7 +151,7 @@
   }
 
   // ---------- Obrazovky ----------
-  const SCREENS = ['menu', 'games', 'songs', 'school', 'lesson', 'dictation', 'cats', 'cat', 'shop', 'help', 'pause', 'result'];
+  const SCREENS = ['menu', 'games', 'songs', 'school', 'lesson', 'dictation', 'prvouka', 'cats', 'cat', 'shop', 'help', 'pause', 'result'];
   let screen = 'menu';
   function show(name) {
     screen = name;
@@ -166,6 +166,7 @@
     if (name === 'school') renderSchool();
     if (name !== 'lesson') lessonStop();
     if (name !== 'dictation') dictStop();
+    if (name !== 'prvouka') pvStop();
     if (name === 'cats') renderCats();
     if (name === 'shop') renderShop();
     if (name === 'cat') { $('#rename').classList.add('hidden'); renderCatDetail(); }
@@ -772,7 +773,7 @@
 
   // Čas beží, keď je aplikácia zapnutá a na obrazovke (menu, Mačací zbor, obchod, mačky…).
   // Pri učení (Mačacia škola, Diktát – aj výber mačičky) sa čas neodpočítava a limit sa nezapne.
-  const LEARN_SCREENS = ['school', 'lesson', 'dictation'];
+  const LEARN_SCREENS = ['school', 'lesson', 'dictation', 'prvouka'];
   // keď je čas minutý, dá sa ísť len na výber hry a do učenia
   const OPEN_WHEN_OUT = ['games', ...LEARN_SCREENS];
   let tickN = 0;
@@ -1247,10 +1248,13 @@
   let schoolMode = 'school'; // 'school' = Mačacia škola, 'dictation' = Diktát
   function renderSchool() {
     const dictMode = schoolMode === 'dictation';
-    $('#school-title').textContent = dictMode ? 'Diktát' : 'Mačacia škola';
+    const pvMode = schoolMode === 'prvouka';
+    $('#school-title').textContent = dictMode ? 'Diktát' : pvMode ? 'Prvouka' : 'Mačacia škola';
     $('#school-hint').textContent = dictMode
       ? 'S ktorou mačičkou chceš písať diktát? Za každú vetu bez chyby jej stúpne IQ (od 0 až do 150).'
-      : 'S ktorou mačičkou sa chceš učiť? Za každú správnu odpoveď jej stúpne IQ (od 0 až do 150).';
+      : pvMode
+        ? 'S ktorou mačičkou sa chceš učiť prvouku? Za každé správne doplnené slovo jej stúpne IQ (od 0 až do 150).'
+        : 'S ktorou mačičkou sa chceš učiť? Za každú správnu odpoveď jej stúpne IQ (od 0 až do 150).';
     const grid = $('#school-grid');
     grid.innerHTML = '';
     for (const cat of CATS) {
@@ -1262,7 +1266,7 @@
       b.querySelector('.iq-txt').textContent = `IQ ${v}`;
       b.querySelector('.iqbar i').style.width = Math.max(2, (v / IQ_MAX) * 100) + '%';
       paintCat(b.querySelector('canvas'), cat, 84, outfitOf(cat.id), 'full');
-      b.addEventListener('click', () => { audio.init(); audio.blip(); if (dictMode) startDictation(cat.id); else startLesson(cat.id); });
+      b.addEventListener('click', () => { audio.init(); audio.blip(); if (dictMode) startDictation(cat.id); else if (pvMode) startPrvouka(cat.id); else startLesson(cat.id); });
       grid.append(b);
     }
   }
@@ -1820,6 +1824,371 @@
     dict.raf = requestAnimationFrame(step);
   }
 
+  // ---------- Prvouka: doplňovačky (presúvanie slov do medzier) ----------
+  const PV_IQ = 1;        // IQ za každé správne doplnené slovo
+  const PV_COINS = 100;   // body na nákupy za každé správne slovo
+  const VEHICLE_ICONS = { vlak: '🚆', autobus: '🚌', bicykel: '🚲', auto: '🚗', 'loď': '🛳️', lietadlo: '✈️' };
+
+  let pv = null;
+  let pvCatId = null;
+
+  function pickExercise() {
+    const recent = Array.isArray(store.pvRecent) ? store.pvRecent : [];
+    const all = PRVOUKA.map((e, i) => i);
+    const fresh = all.filter(i => !recent.includes(i));
+    const pool = fresh.length ? fresh : all.filter(i => i !== recent[recent.length - 1]);
+    const i = pool[rand(pool.length)];
+    store.pvRecent = [...recent, i].slice(-6);
+    return PRVOUKA[i];
+  }
+
+  function startPrvouka(catId) {
+    pvStop();
+    pvCatId = catId;
+    const ex = pickExercise();
+    let slots, extra = [];
+    if (ex.type === 'text') {
+      slots = ex.items.flatMap(s => [...s.matchAll(/\{([^}]+)\}/g)].map(m => m[1]));
+      extra = ex.extra || [];
+    } else slots = ex.answers.slice();
+    const words = shuffle([...slots, ...extra]).map((text, id) => ({ id, text }));
+    pv = {
+      catId, ex, slots, words, place: slots.map(() => null), sel: null, checked: false,
+      order: ex.type === 'vehicles' ? shuffle(slots.map((s, k) => k)) : null,
+      startIq: iqOf(catId), mood: null, moodT: 0, t: 0, raf: 0,
+    };
+    save();
+    show('prvouka');
+    $('#pv-scroll').scrollTop = 0;
+    $('#pv-title').textContent = `${ex.icon} ${ex.title}`;
+    $('#pv-ask').textContent = ex.type === 'text'
+      ? 'Chyť slovo a presuň ho do správnej medzery.' + (extra.length ? ' Jedno slovo je navyše!' : '')
+      : 'Chyť slovo a presuň ho k správnemu obrázku.';
+    $('#pv-progress').textContent = `${slots.length} slov`;
+    $('#pv-result').classList.add('hidden');
+    $('#btn-pv-check').classList.remove('hidden');
+    $('#pv-bank').classList.remove('hidden');
+    buildPvBody();
+    pvRender();
+    updatePvCat();
+    pvLoop();
+  }
+
+  function pvStop() {
+    if (pv && pv.raf) cancelAnimationFrame(pv.raf);
+    pvDragEnd();
+    pv = null;
+  }
+
+  function updatePvCat() {
+    const cat = catById(pvCatId);
+    const v = iqOf(cat.id);
+    $('#pv-name').textContent = cat.name;
+    $('#pv-iq').textContent = `IQ ${v} / ${IQ_MAX} · ${iqLabel(v)}`;
+    $('#pv-iqbar').style.width = Math.max(2, (v / IQ_MAX) * 100) + '%';
+  }
+
+  const gapEl = k => { const g = document.createElement('span'); g.className = 'gap'; g.dataset.slot = k; return g; };
+
+  /** Vlastná jednoduchá kresba kostry (SVG) – miesta na popisky sú vľavo a vpravo. */
+  function skeletonSVG() {
+    const B = '#f4e9cf', O = '#9c8156';
+    const bone = (x1, y1, x2, y2, w = 7) =>
+      `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${O}" stroke-width="${w + 3}" stroke-linecap="round"/>` +
+      `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${B}" stroke-width="${w}" stroke-linecap="round"/>` +
+      `<circle cx="${x1}" cy="${y1}" r="${w * 0.75}" fill="${B}" stroke="${O}" stroke-width="1.5"/>` +
+      `<circle cx="${x2}" cy="${y2}" r="${w * 0.75}" fill="${B}" stroke="${O}" stroke-width="1.5"/>`;
+    let s = `<svg viewBox="0 0 320 440" class="skel-svg" aria-hidden="true"><g stroke-linecap="round" stroke-linejoin="round">`;
+    // chrbtica (stavce)
+    for (let y = 80; y <= 236; y += 9) s += `<rect x="154" y="${y}" width="12" height="7" rx="2.5" fill="${B}" stroke="${O}" stroke-width="1.5"/>`;
+    // rebrá
+    for (let i = 0; i < 7; i++) {
+      const y = 94 + i * 11, w = 40 - Math.max(0, i - 4) * 5;
+      for (const d of [-1, 1]) {
+        const p = `M${160 + d * 3} ${y} C ${160 + d * w * 0.6} ${y - 8}, ${160 + d * w} ${y + 2}, ${160 + d * (w - 4)} ${y + 15}`;
+        s += `<path d="${p}" fill="none" stroke="${O}" stroke-width="6"/><path d="${p}" fill="none" stroke="${B}" stroke-width="3.5"/>`;
+      }
+    }
+    s += `<rect x="156" y="90" width="8" height="56" rx="3" fill="${B}" stroke="${O}" stroke-width="1.5"/>`;
+    // kľúčne kosti a panva
+    s += `<path d="M160 86 Q138 80 116 88" fill="none" stroke="${O}" stroke-width="7"/><path d="M160 86 Q138 80 116 88" fill="none" stroke="${B}" stroke-width="4"/>`;
+    s += `<path d="M160 86 Q182 80 204 88" fill="none" stroke="${O}" stroke-width="7"/><path d="M160 86 Q182 80 204 88" fill="none" stroke="${B}" stroke-width="4"/>`;
+    s += `<path d="M128 240 Q118 262 140 278 Q150 271 160 277 Q170 271 180 278 Q202 262 192 240 Q176 251 160 247 Q144 251 128 240 Z" fill="${B}" stroke="${O}" stroke-width="2"/>`;
+    s += `<ellipse cx="146" cy="262" rx="5" ry="6" fill="${O}" opacity=".5"/><ellipse cx="174" cy="262" rx="5" ry="6" fill="${O}" opacity=".5"/>`;
+    // ruky
+    for (const d of [-1, 1]) {
+      const sx = 160 + d * 44;
+      s += bone(sx, 92, sx + d * 8, 168, 7);                       // ramenná kosť
+      s += bone(sx + d * 8, 172, sx + d * 11, 238, 4) + bone(sx + d * 3, 174, sx + d * 6, 238, 3.5);
+      s += `<ellipse cx="${sx + d * 9}" cy="${250}" rx="7" ry="10" fill="${B}" stroke="${O}" stroke-width="1.5"/>`;
+      for (let f = -2; f <= 2; f++) s += `<line x1="${sx + d * 9 + f * 2.5}" y1="258" x2="${sx + d * 9 + f * 3}" y2="270" stroke="${O}" stroke-width="2"/>`;
+    }
+    // nohy
+    for (const d of [-1, 1]) {
+      const hx = 160 + d * 15;
+      s += bone(hx, 280, hx + d * 6, 356, 8);                      // stehenná kosť
+      s += `<circle cx="${hx + d * 6}" cy="${362}" r="6" fill="${B}" stroke="${O}" stroke-width="1.5"/>`;
+      s += bone(hx + d * 6, 370, hx + d * 5, 424, 5) + bone(hx + d * 10, 372, hx + d * 10, 422, 3);
+      s += `<ellipse cx="${hx + d * 10}" cy="${432}" rx="12" ry="5" fill="${B}" stroke="${O}" stroke-width="1.5"/>`;
+    }
+    // lebka
+    s += `<ellipse cx="160" cy="42" rx="24" ry="28" fill="${B}" stroke="${O}" stroke-width="2"/>`;
+    s += `<path d="M146 60 Q160 80 174 60" fill="${B}" stroke="${O}" stroke-width="2"/>`;
+    s += `<ellipse cx="151" cy="40" rx="6" ry="7" fill="#5b4630"/><ellipse cx="169" cy="40" rx="6" ry="7" fill="#5b4630"/>`;
+    s += `<path d="M160 47 l-3.5 8 h7 z" fill="#5b4630"/><path d="M151 65 h18 M155 62 v6 M160 62 v7 M165 62 v6" stroke="#5b4630" stroke-width="1.3"/>`;
+    s += `<rect x="155" y="70" width="10" height="9" rx="3" fill="${B}" stroke="${O}" stroke-width="1.5"/>`;
+    // čiary od popisiek k častiam kostry
+    for (const [x1, y1, x2, y2] of SKEL_LINES) {
+      s += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#7d6bd6" stroke-width="2.2"/><circle cx="${x2}" cy="${y2}" r="4" fill="#7d6bd6"/>`;
+    }
+    return s + '</g></svg>';
+  }
+  // miesta popisiek: [strana, y] v poradí ako answers; čiary [od x, od y, k x, k y]
+  const SKEL_SPOTS = [['l', 42], ['l', 128], ['l', 214], ['r', 128], ['r', 316]];
+  const SKEL_LINES = [[100, 42, 137, 42], [100, 128, 124, 122], [100, 214, 154, 214], [220, 128, 210, 130], [220, 316, 178, 318]];
+
+  function buildPvBody() {
+    const body = $('#pv-body');
+    body.innerHTML = '';
+    body.className = 'pv-body ' + pv.ex.type;
+    let k = 0;
+    if (pv.ex.type === 'text') {
+      const ol = document.createElement('ol');
+      ol.className = 'pv-sents';
+      for (const sent of pv.ex.items) {
+        const li = document.createElement('li');
+        sent.split(/\{[^}]+\}/).forEach((part, i, arr) => {
+          if (part) li.append(document.createTextNode(part));
+          if (i < arr.length - 1) li.append(gapEl(k++));
+        });
+        ol.append(li);
+      }
+      body.append(ol);
+    } else if (pv.ex.type === 'skeleton') {
+      const fig = document.createElement('div');
+      fig.className = 'pv-figure';
+      fig.innerHTML = skeletonSVG();
+      SKEL_SPOTS.forEach(([side, y], i) => {
+        const g = gapEl(i);
+        g.classList.add('pos', side);
+        g.style.top = (y / 440) * 100 + '%';
+        fig.append(g);
+      });
+      body.append(fig);
+    } else {
+      const grid = document.createElement('div');
+      grid.className = 'pv-vehicles';
+      for (const slot of pv.order) {
+        const tile = document.createElement('div');
+        tile.className = 'pv-tile';
+        const pic = document.createElement('div');
+        pic.className = 'pv-pic';
+        pic.textContent = VEHICLE_ICONS[pv.slots[slot]] || '❓';
+        tile.append(pic, gapEl(slot));
+        grid.append(tile);
+      }
+      body.append(grid);
+    }
+  }
+
+  function chipEl(wid) {
+    const w = pv.words[wid];
+    const c = document.createElement('span');
+    c.className = 'wchip' + (pv.sel === wid ? ' sel' : '') + (w.text.length > 10 ? ' long' : '');
+    c.dataset.wid = wid;
+    c.textContent = w.text;
+    return c;
+  }
+
+  function pvRender() {
+    $$('#pv-body .gap').forEach(g => {
+      const k = +g.dataset.slot, wid = pv.place[k];
+      g.innerHTML = '';
+      g.classList.toggle('filled', wid != null);
+      if (pv.checked) {
+        const ok = wid != null && pv.words[wid].text === pv.slots[k];
+        g.classList.add(ok ? 'ok' : 'bad');
+        if (ok) { const b = document.createElement('b'); b.textContent = pv.slots[k]; g.append(b); }
+        else {
+          const s = document.createElement('s'); s.textContent = wid != null ? pv.words[wid].text : '—';
+          const b = document.createElement('b'); b.textContent = pv.slots[k];
+          g.append(s, b);
+        }
+      } else if (wid != null) g.append(chipEl(wid));
+    });
+    const bank = $('#pv-bank');
+    bank.innerHTML = '';
+    for (const w of pv.words) if (!pv.place.includes(w.id)) bank.append(chipEl(w.id));
+    if (!bank.childElementCount && !pv.checked) {
+      const e = document.createElement('span');
+      e.className = 'pv-empty';
+      e.textContent = 'Všetky slová sú na mieste 👍';
+      bank.append(e);
+    }
+    $('#btn-pv-check').disabled = pv.place.some(p => p == null);
+  }
+
+  function pvPlace(wid, slot) {
+    const prev = pv.place.indexOf(wid);
+    const other = pv.place[slot];
+    if (prev === slot) { pv.sel = null; pvRender(); return; }
+    if (prev >= 0) pv.place[prev] = null;
+    pv.place[slot] = wid;
+    if (other != null && prev >= 0) pv.place[prev] = other; // vymeniť dve slová medzi medzerami
+    pv.sel = null;
+    audio.blip();
+    pvRender();
+  }
+  function pvUnplace(wid) {
+    const k = pv.place.indexOf(wid);
+    if (k >= 0) pv.place[k] = null;
+    pv.sel = null;
+    pvRender();
+  }
+
+  // ----- chytanie a prenášanie slov (prst aj myš); ťuknutie na slovo a potom na medzeru funguje tiež -----
+  const pvRoot = $('#screen-prvouka');
+  let pvDrag = null;
+  function pvDragEnd() {
+    if (pvDrag && pvDrag.ghost) pvDrag.ghost.remove();
+    $$('#pv-body .gap.over').forEach(g => g.classList.remove('over'));
+    pvDrag = null;
+  }
+  const gapAt = (x, y) => { const el = document.elementFromPoint(x, y); return el ? el.closest('#pv-body .gap') : null; };
+
+  pvRoot.addEventListener('pointerdown', e => {
+    if (!pv || pv.checked || pvDrag) return;
+    const chip = e.target.closest('.wchip');
+    if (!chip) return;
+    audio.init();
+    const r = chip.getBoundingClientRect();
+    pvDrag = { wid: +chip.dataset.wid, pid: e.pointerId, x0: e.clientX, y0: e.clientY, dx: e.clientX - r.left, dy: e.clientY - r.top,
+      w: r.width, moved: false, ghost: null, from: chip.closest('.gap') ? +chip.closest('.gap').dataset.slot : null, chip };
+    e.preventDefault();
+  });
+  window.addEventListener('pointermove', e => {
+    if (!pvDrag || e.pointerId !== pvDrag.pid) return;
+    const d = pvDrag;
+    if (!d.moved && Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < 7) return;
+    if (!d.moved) {
+      d.moved = true;
+      d.ghost = d.chip.cloneNode(true);
+      d.ghost.classList.add('ghost');
+      d.ghost.style.width = d.w + 'px';
+      document.body.append(d.ghost);
+      d.chip.classList.add('dragging');
+    }
+    d.ghost.style.left = e.clientX - d.dx + 'px';
+    d.ghost.style.top = e.clientY - d.dy + 'px';
+    const over = gapAt(e.clientX, e.clientY);
+    $$('#pv-body .gap').forEach(g => g.classList.toggle('over', g === over));
+    // pri okraji obrazovky posúvať obsah, aby sa dalo dostať k vzdialenej medzere
+    const sc = $('#pv-scroll'), sr = sc.getBoundingClientRect();
+    if (e.clientY < sr.top + 50) sc.scrollTop -= 12;
+    else if (e.clientY > sr.bottom - 50) sc.scrollTop += 12;
+    e.preventDefault();
+  }, { passive: false });
+  window.addEventListener('pointerup', e => {
+    if (!pvDrag || e.pointerId !== pvDrag.pid) return;
+    const d = pvDrag;
+    if (d.ghost) d.ghost.style.display = 'none';
+    const gap = gapAt(e.clientX, e.clientY);
+    pvDragEnd();
+    if (!pv) return;
+    if (d.moved) {
+      if (gap) pvPlace(d.wid, +gap.dataset.slot);
+      else if (d.from != null) pvUnplace(d.wid); // pustené mimo medzery → späť medzi slová
+      else pvRender();
+      return;
+    }
+    // ťuknutie
+    if (d.from != null) {
+      if (pv.sel != null && pv.sel !== d.wid) pvPlace(pv.sel, d.from);
+      else { audio.blip(); pvUnplace(d.wid); }
+    } else { pv.sel = pv.sel === d.wid ? null : d.wid; audio.blip(); pvRender(); }
+  });
+  window.addEventListener('pointercancel', () => { if (pvDrag) { pvDragEnd(); if (pv) pvRender(); } });
+  // ťuknutie na prázdnu medzeru, keď je vybraté slovo
+  pvRoot.addEventListener('click', e => {
+    if (!pv || pv.checked || pv.sel == null || e.target.closest('.wchip')) return;
+    const gap = e.target.closest('#pv-body .gap');
+    if (gap) pvPlace(pv.sel, +gap.dataset.slot);
+  });
+
+  function pvPop(text) {
+    const el = $('#pv-plus');
+    el.textContent = text;
+    el.classList.remove('show');
+    void el.offsetWidth;
+    el.classList.add('show');
+  }
+
+  function checkPrvouka() {
+    if (!pv || pv.checked || pv.place.some(p => p == null)) return;
+    audio.init();
+    pv.checked = true;
+    const good = pv.slots.filter((s, k) => pv.words[pv.place[k]].text === s).length;
+    const total = pv.slots.length;
+    const cat = catById(pv.catId);
+    const before = iqOf(cat.id);
+    addIq(cat.id, good * PV_IQ);
+    const gained = iqOf(cat.id) - before;
+    const coins = good * PV_COINS;
+    store.coins += coins;
+    save();
+    pvRender();
+    $('#btn-pv-check').classList.add('hidden');
+    $('#pv-bank').classList.add('hidden');
+    const v = $('#pv-verdict');
+    if (good === total) {
+      v.className = 'dict-verdict ok';
+      v.textContent = `Všetko správne! 🎉 (${good} z ${total})`;
+      audio.preview(cat.voice, 79);
+      pv.mood = 'happy';
+    } else {
+      v.className = 'dict-verdict bad';
+      v.textContent = `Správne ${good} z ${total}. Červené miesta sú opravené – zelené slovo tam patrí.`;
+      if (good) audio.preview(cat.voice, 72); else audio.miss(audio.ui);
+      pv.mood = good ? null : 'sad';
+    }
+    pv.moodT = 0;
+    if (gained > 0) pvPop(`+${gained} IQ`);
+    $('#pv-iqline').textContent = gained > 0
+      ? `${cat.name}: IQ ${pv.startIq} → ${iqOf(cat.id)}${iqOf(cat.id) >= IQ_MAX ? ' · Génius! 🎓' : ''}`
+      : good ? `${cat.name} už má plné IQ 🎓` : `${cat.name} tentoraz IQ nedostane. Skús ďalšiu úlohu!`;
+    $('#pv-earn').innerHTML = coins ? `<div class="earn">+${price(coins)}</div><small>na nákupy</small>` : '';
+    $('#pv-progress').textContent = `${good} / ${total}`;
+    $('#pv-result').classList.remove('hidden');
+    updatePvCat();
+    updateWallets();
+  }
+
+  $('#btn-pv-check').addEventListener('click', checkPrvouka);
+  $('#btn-pv-again').addEventListener('click', () => { audio.init(); audio.blip(); startPrvouka(pvCatId); });
+
+  function pvLoop() {
+    let last = performance.now();
+    const step = ts => {
+      if (!pv || screen !== 'prvouka') return;
+      const dt = Math.min(0.05, (ts - last) / 1000);
+      last = ts;
+      pv.t += dt;
+      pv.moodT += dt;
+      const cat = catById(pv.catId);
+      const active = pv.mood && pv.moodT < 0.9;
+      paintCat($('#pv-cat'), cat, 96, outfitOf(cat.id), 'full', {
+        t: pv.t,
+        mouth: active && pv.mood === 'happy' ? 0.45 + 0.3 * Math.sin(pv.t * 18) : 0,
+        sad: active && pv.mood === 'sad',
+        blink: (pv.t % 3.4) < 0.12,
+        look: Math.sin(pv.t * 0.9) * 0.5,
+        noBed: true,
+      });
+      pv.raf = requestAnimationFrame(step);
+    };
+    pv.raf = requestAnimationFrame(step);
+  }
+
   // ---------- Výsledok ----------
   game.onEnd = r => {
     const prev = store.best[current.id] || { score: 0, stars: 0 };
@@ -1898,7 +2267,7 @@
   // Ikona na ploche iPhonu nechá hru „uspatú“ v pozadí. Keď sa k nej vrátiš,
   // over, či sa na GitHube niečo nezmenilo, a ak áno, načítaj novú verziu
   // (nie počas rozohranej pesničky).
-  const APP_FILES = ['./', 'css/style.css', 'js/songs.js', 'js/audio.js', 'js/cats.js', 'js/shop.js', 'js/game.js', 'js/dictation-sentences.js', 'js/main.js'];
+  const APP_FILES = ['./', 'css/style.css', 'js/songs.js', 'js/audio.js', 'js/cats.js', 'js/shop.js', 'js/game.js', 'js/dictation-sentences.js', 'js/prvouka.js', 'js/main.js'];
   let fingerprint = null;
   let checking = false;
 
@@ -1926,5 +2295,5 @@
   window.addEventListener('pageshow', e => { if (e.persisted) checkForUpdate(); });
 
   // Prístup pre ladenie z konzoly prehliadača (napr. macaciZbor.store.coins)
-  window.macaciZbor = { game, audio, store, save, syncGame, limitState: () => ({ task, quiz, clk, lesson, dict }) };
+  window.macaciZbor = { game, audio, store, save, syncGame, limitState: () => ({ task, quiz, clk, lesson, dict, pv }) };
 })();

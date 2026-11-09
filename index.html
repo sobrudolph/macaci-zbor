@@ -65,6 +65,11 @@
           <span class="gc-title">Diktát</span>
           <span class="gc-sub">Mačička ti nadiktuje vetu a ty ju napíšeš bez chyby. Za každú správnu vetu jej stúpne IQ!</span>
         </button>
+        <button class="game-card" data-go="school" data-mode="prvouka" style="--c1:#2ec4b6;--c2:#3a86ff">
+          <span class="gc-icon">🌍</span>
+          <span class="gc-title">Prvouka</span>
+          <span class="gc-sub">Doplň chýbajúce slová – Slovensko, kalendár, čas, kostra, svaly, doprava. Za správne slová stúpa mačičke IQ!</span>
+        </button>
       </div>
     </section>
 
@@ -149,6 +154,43 @@
             <p class="end-iq" id="dict-iqline"></p>
             <div class="res-earn" id="dict-earn"></div>
             <button class="btn primary" id="btn-dict-again">Nová veta ▶</button>
+            <div class="btn-row">
+              <button class="btn" data-go="school">Iná mačička</button>
+              <button class="btn" data-go="menu">Do menu</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Prvouka: doplňovačky -->
+    <section id="screen-prvouka" class="screen panel hidden">
+      <header class="bar">
+        <button class="icon-btn" data-go="school" aria-label="Späť">←</button>
+        <h2>Prvouka</h2>
+        <span class="pill" id="pv-progress"></span>
+      </header>
+      <div class="lesson" id="pv-scroll">
+        <div class="lesson-cat">
+          <canvas id="pv-cat"></canvas>
+          <div class="lesson-iq">
+            <b id="pv-name"></b>
+            <span id="pv-iq"></span>
+            <div class="iqbar"><i id="pv-iqbar"></i></div>
+          </div>
+          <span class="iq-plus" id="pv-plus">+1 IQ</span>
+        </div>
+        <div class="lesson-card pv-card">
+          <div class="pv-title" id="pv-title"></div>
+          <div class="lesson-ask" id="pv-ask">Chyť slovo a presuň ho na správne miesto.</div>
+          <div class="pv-body" id="pv-body"></div>
+          <div class="pv-bank" id="pv-bank"></div>
+          <button class="btn dict-check" id="btn-pv-check" disabled>✓ Skontrolovať</button>
+          <div class="dict-result hidden" id="pv-result">
+            <div class="dict-verdict" id="pv-verdict"></div>
+            <p class="end-iq" id="pv-iqline"></p>
+            <div class="res-earn" id="pv-earn"></div>
+            <button class="btn primary" id="btn-pv-again">Ďalšia úloha ▶</button>
             <div class="btn-row">
               <button class="btn" data-go="school">Iná mačička</button>
               <button class="btn" data-go="menu">Do menu</button>
@@ -245,8 +287,9 @@
           <li>Za body z pesničiek nakupuješ v <b>Obchode</b> jedlo, oblečenie, okuliare, obojky, vodítka a pelechy vo veľa farbách.</li>
           <li>Mačky po každej pesničke a časom <b>vyhladnú</b>. Nakŕm ich v Mačkách. Najedená mačka (nad 60 %) dá <b>+10 % bodov</b>, hladná (pod 25 %) o 15 % menej.</li>
           <li>Pozor na <b>prekŕmenie</b>: keď kŕmiš plnú mačku, rýchlo priberie. Prejedená mačka sa ťažko hýbe a tučná dá o 10 % menej bodov. Schudne len pohybom v pesničkách, postupne, za viac hier.</li>
-          <li><b>Limit</b>: aplikácia sa dá mať zapnutú 6 minút (čas vidíš v menu vľavo hore). Potom príde úloha: buď 5 príkladov na sčítanie a odčítanie do 20, alebo 3× nastaviť ručičkové hodiny. Úlohy sa striedajú, ale častejšie prídu tie, v ktorých robíš chyby. Keď je všetko správne, pribudne ďalších 6 minút. Pri učení (Diktát, Mačacia škola) sa čas neodpočítava a dá sa učiť aj po vypršaní limitu.</li>
+          <li><b>Limit</b>: aplikácia sa dá mať zapnutú 6 minút (čas vidíš v menu vľavo hore). Potom príde úloha: buď 5 príkladov na sčítanie a odčítanie do 20, alebo 3× nastaviť ručičkové hodiny. Úlohy sa striedajú, ale častejšie prídu tie, v ktorých robíš chyby. Keď je všetko správne, pribudne ďalších 6 minút. Pri učení (Diktát, Mačacia škola, Prvouka) sa čas neodpočítava a dá sa učiť aj po vypršaní limitu.</li>
           <li><b>Diktát</b> (tretia hra): mačička pomaly 2× prečíta vetu z 5 slov, ty ju napíšeš a na konci ti ju opraví. Za vetu bez chyby jej stúpne IQ (+3), s chybou IQ nedostane.</li>
+          <li><b>Prvouka</b>: chyť slovo prstom a presuň ho do správnej medzery vo vete alebo k obrázku (kostra, dopravné prostriedky). Dá sa aj ťuknúť na slovo a potom na medzeru. Za každé správne slovo +1 IQ.</li>
           <li><b>Mačacia škola</b> (druhá hra v ponuke Hrať): 10 otázok – príklady a hodiny, vždy 3 možnosti a len jedna je správna. Za každú správnu odpoveď stúpne vybranej mačičke <b>IQ</b> (od 0 do 150).</li>
           <li>Mačku môžeš <b>premenovať</b> ceruzkou ✏️ v jej detaile.</li>
           <li>Na počítači: <kbd>A</kbd> <kbd>D</kbd> ľavá mačka, <kbd>←</kbd> <kbd>→</kbd> pravá mačka. Myš ovláda mačku na strane, kde je kurzor. <kbd>Esc</kbd> = pauza.</li>
@@ -293,7 +336,7 @@
         <p class="limit-task" id="limit-task"></p>
         <button class="btn primary" id="btn-add-limit">➕ Pridať limit</button>
         <div class="limit-or">alebo</div>
-        <button class="btn primary" id="btn-limit-learn">📚 Ísť sa učiť (Diktát, Mačacia škola)</button>
+        <button class="btn primary" id="btn-limit-learn">📚 Ísť sa učiť (Diktát, Škola, Prvouka)</button>
         <p class="limit-text small">Pri učení sa čas neodpočítava.</p>
       </div>
       <div class="card hidden" id="limit-clock">
@@ -327,6 +370,7 @@
   <script src="js/shop.js"></script>
   <script src="js/game.js"></script>
   <script src="js/dictation-sentences.js"></script>
+  <script src="js/prvouka.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

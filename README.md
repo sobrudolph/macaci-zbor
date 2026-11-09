@@ -9,13 +9,16 @@ Každú mačku ovládaš jedným palcom. Keď pochúťku chytíš, mačka zamňa
 - **Starostlivosť:** mačky časom a po pesničkách vyhladnú. Najedené mačky dajú bonus k bodom, hladné menej. Prekŕmené mačky rýchlo priberú a ťažko sa hýbu. Schudnú len pohybom v pesničkách, postupne za viac hier.
 - **Diktát:** mačička pomaly 2× nadiktuje po slovensky jednu vetu z 5 slov (2. ročník ZŠ – veľké písmená, dĺžne, mäkčene, otázky),
   dieťa ju napíše a na konci sa opraví s vysvetlením chyby. Za vetu bez chyby +3 IQ, s chybou nič. Vety sú v `js/dictation-sentences.js`.
-- **Hry:** Mačací zbor (rytmická hra), Diktát a **Mačacia škola** – 10 otázok (striedajú sa príklady do 20 a čítanie času z hodín), vždy 3 možnosti a len jedna správna. Za správne odpovede stúpa vybranej mačičke IQ od 0 do 150.
+- **Prvouka:** doplňovačky pre 2. ročník (Slovensko, kalendár, čas, kostra, svaly, bezpečnosť na ceste, doprava) –
+  slová sa prstom presúvajú do rovnako veľkých medzier vo vetách alebo k obrázkom kostry a dopravných prostriedkov.
+  Za každé správne slovo +1 IQ. Úlohy sú v `js/prvouka.js`.
+- **Hry:** Mačací zbor (rytmická hra), Diktát, Prvouka a **Mačacia škola** – 10 otázok (striedajú sa príklady do 20 a čítanie času z hodín), vždy 3 možnosti a len jedna správna. Za správne odpovede stúpa vybranej mačičke IQ od 0 do 150.
 - **Limit 6 minút:** po 6 minútach zapnutej aplikácie príde úloha, jedna z dvoch (nemiešajú sa):
   - 5 príkladov na sčítanie a odčítanie do 20,
   - 3× nastaviť ručičkové hodiny na zadaný čas (po 5 minútach, aj popoludňajšie časy ako 20:30).
 
   Keď je všetko správne, pribudne ďalších 6 minút, inak príde nové kolo rovnakej úlohy.
-  Pri učení (Diktát, Mačacia škola) sa čas neodpočítava a limit sa nezapne; po vypršaní limitu sa dá tlačidlom
+  Pri učení (Diktát, Mačacia škola, Prvouka) sa čas neodpočítava a limit sa nezapne; po vypršaní limitu sa dá tlačidlom
   „Ísť sa učiť“ učiť ďalej, ostatné časti ostanú zamknuté, kým dieťa nesplní úlohu. Dĺžka limitu je `LIMIT_MIN` v `js/main.js`.
 
   **Pravidlo výberu úloh:** úlohy sa striedajú. Ak v niektorej robí chyby a v inej nie, dáva sa len tá s chybami
