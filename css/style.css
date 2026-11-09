@@ -26,15 +26,14 @@ body {
   -webkit-user-select: none;
 }
 
+/* hra vždy na celú obrazovku (mobil, iPad, počítač) */
 #app {
   position: relative;
   width: 100%;
-  max-width: 520px;
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
   background: #7d6bd6;
-  box-shadow: 0 0 60px rgba(0, 0, 0, .45);
 }
 
 #game {
@@ -133,6 +132,9 @@ body {
   -webkit-backdrop-filter: blur(8px);
   color: #fff;
   gap: 12px;
+  /* na iPade a počítači je pozadie na celú šírku, obsah ostane rozumne široký v strede */
+  padding-left: max(16px, calc((100% - 720px) / 2));
+  padding-right: max(16px, calc((100% - 720px) / 2));
 }
 
 .bar { display: flex; align-items: center; gap: 12px; }
@@ -637,6 +639,13 @@ kbd {
   z-index: 20;
 }
 #toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* iPad a veľké obrazovky: väčšie tlačidlá a okná */
+@media (min-width: 700px) and (min-height: 700px) {
+  .menu-buttons { width: 380px; gap: 14px; }
+  .menu-buttons .btn { font-size: 24px; padding: 17px 22px; }
+  .card { width: min(420px, 100%); }
+}
 
 @media (max-height: 700px) {
   #screen-menu { padding-top: 4vh; gap: 2.5vh; }
