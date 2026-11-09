@@ -914,3 +914,24 @@ kbd {
 .pv-tile { display: flex; flex-direction: column; align-items: center; gap: 6px; background: #f6f2fc; border-radius: 16px; padding: 8px 6px; }
 .pv-pic { font-size: 46px; line-height: 1.1; }
 .pv-tile .gap { --gw: 100%; margin: 0; }
+
+/* ---------- Zamknuté mačičky a výber na začiatku ---------- */
+.cat-card.locked canvas { filter: grayscale(.85) brightness(.85); opacity: .7; }
+.cat-card.locked .cat-name { opacity: .75; }
+.cat-card.locked .badge { background: rgba(0, 0, 0, .45); }
+.lock-price { font-size: 12px; font-weight: 700; color: var(--gold); white-space: nowrap; }
+.cat-buy {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(255, 255, 255, .12);
+  border-radius: 16px;
+  padding: 14px;
+  text-align: center;
+}
+.cat-buy p { margin: 0; font-size: 15px; line-height: 1.35; }
+#btn-buy-cat.poor { opacity: .6; }
+.welcome-hint { font-size: 16px; }
+.welcome-go { flex: none; }
+#welcome-grid .cat-card.sel .badge { background: var(--gold); color: var(--ink); }

@@ -3,7 +3,12 @@
 Rytmická hra pre dva palce. Dve mačky sedia vedľa seba a do rytmu hudby na ne padajú pochúťky.
 Každú mačku ovládaš jedným palcom. Keď pochúťku chytíš, mačka zamňauká tón melódie, takže pesničku vlastne „spievajú“ mačky.
 
-- **29 mačiek, všetky odomknuté a zadarmo.** Nie sú tu reklamy ani nákupy za skutočné peniaze. Každú mačku si môžeš premenovať.
+- **29 mačiek.** Na začiatku si vyberieš 2 zadarmo, ostatné sú zamknuté a kúpiš ich za body z hier a učenia
+  (obyčajná 8 000, s doplnkom alebo vzorom 12 000, výnimočná 18 000). Nie sú tu reklamy ani nákupy za skutočné peniaze.
+  Každú mačku si môžeš premenovať.
+- **Ekonomika:** na začiatku 35 000 bodov. Pesnička dá 300 – 750 (podľa obtiažnosti a presnosti),
+  Mačacia škola 120 za odpoveď (+300 za 10/10), Diktát 500 za vetu bez chyby, Prvouka 120 za slovo (+200 za všetko správne).
+  Jedlo stojí 200 – 1 100, oblečenie 1 500 – 12 000 (zlaté, strieborné a dúhové farby drahšie).
 - **22 pesničiek v 4 obtiažnostiach:** pôvodné skladby (aj rap, rock a metal) a melódie, ktoré sú voľné dielo (Hviezdička, Óda na radosť, Pre Elišku, Kánon, Brat Jakub, Zvončeky, Malá nočná hudba, Jar, V jaskyni horského kráľa, Turecký pochod, Kankán, Na krásnom modrom Dunaji).
 - **Obchod:** za body z pesničiek kupuješ jedlo (granule, konzervy, mlieko, mlsky) a viac ako 50 druhov oblečenia, okuliarov, obojkov, vodítok a pelechov, každý vo veľa farbách.
 - **Starostlivosť:** mačky časom a po pesničkách vyhladnú. Najedené mačky dajú bonus k bodom, hladné menej. Prekŕmené mačky rýchlo priberú a ťažko sa hýbu. Schudnú len pohybom v pesničkách, postupne za viac hier.

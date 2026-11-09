@@ -3,7 +3,9 @@
 (() => {
   const $ = s => document.querySelector(s);
   const $$ = s => document.querySelectorAll(s);
-  const STORE_KEY = 'macaci-zbor-v1';
+  // v2 = reset hry (nové mačky, ceny, odmeny a IQ od nuly); starý postup v1 sa zmaže
+  const STORE_KEY = 'macaci-zbor-v2';
+  try { localStorage.removeItem('macaci-zbor-v1'); } catch (e) { /* ignore */ }
   const clampN = (v, a, b) => Math.max(a, Math.min(b, v));
 
   // ---------- Ukladanie ----------
@@ -23,18 +25,33 @@
     c.baseName = c.name;
     if (typeof store.names[c.id] === 'string' && store.names[c.id]) c.name = store.names[c.id];
   }
+  const START_COINS = 35000;
   if (typeof store.coins !== 'number') {
     // uvítací darček
-    store.coins = 5000;
+    store.coins = START_COINS;
     store.pantry = { 'g-fish': 2, 'm-milk': 1, 't-sticks': 2 };
   }
   if (!store.pantry || typeof store.pantry !== 'object') store.pantry = {};
+  // vlastnené mačky: na začiatku si hráč vyberie 2 zadarmo, ostatné sú zamknuté a dajú sa kúpiť
+  if (!Array.isArray(store.cats)) store.cats = [];
 
   const catById = id => CATS.find(c => c.id === id) || CATS[0];
   const chosenCats = () => [catById(store.catL), catById(store.catR)];
+  const ownsCat = id => store.cats.includes(id);
+  const ownedCats = () => CATS.filter(c => ownsCat(c.id));
+  /** Cena mačky: obyčajná 8 000, s doplnkom alebo vzorom 12 000, výnimočná 18 000. */
+  const SPECIAL_ACC = ['crown', 'halo', 'wizard', 'tophat', 'braid', 'antenna'];
+  const PATTERNED = ['calico', 'siamese', 'tuxedo', 'spots', 'socks', 'tiger', 'bicolor'];
+  function catPrice(cat) {
+    if (cat.pattern === 'rainbow' || cat.pattern === 'galaxy' || SPECIAL_ACC.includes(cat.acc)) return 18000;
+    if (cat.acc || PATTERNED.includes(cat.pattern)) return 12000;
+    return 8000;
+  }
+  const catTier = p => (p >= 18000 ? 'výnimočná mačička' : p >= 12000 ? 'mačička s doplnkom' : 'obyčajná mačička');
 
   // ---------- Body (peňaženka) ----------
-  const COIN_RATE = 0.1; // z bodov v pesničke ide na nákupy len 10 % – treba hrať častejšie
+  // Odmeny za pesničku: (150 + 150 × obtiažnosť) × koľko chytil → 300 až 750 bodov
+  const SONG_BASE = 150, SONG_PER_DIFF = 150;
   const COIN = '<svg class="coin" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#ffd34d" stroke="#c8961a" stroke-width="1.6"/><g fill="#c8961a"><ellipse cx="10" cy="12.4" rx="3.4" ry="2.8"/><circle cx="5.9" cy="8.6" r="1.5"/><circle cx="8.3" cy="6.3" r="1.5"/><circle cx="11.7" cy="6.3" r="1.5"/><circle cx="14.1" cy="8.6" r="1.5"/></g></svg>';
   const fmt = n => Math.round(n).toLocaleString('sk-SK');
   const price = n => COIN + fmt(n);
@@ -151,7 +168,7 @@
   }
 
   // ---------- Obrazovky ----------
-  const SCREENS = ['menu', 'games', 'songs', 'school', 'lesson', 'dictation', 'prvouka', 'cats', 'cat', 'shop', 'help', 'pause', 'result'];
+  const SCREENS = ['menu', 'welcome', 'games', 'songs', 'school', 'lesson', 'dictation', 'prvouka', 'cats', 'cat', 'shop', 'help', 'pause', 'result'];
   let screen = 'menu';
   function show(name) {
     screen = name;
@@ -236,7 +253,7 @@
   let detailId = store.catL;
 
   function renderCats() {
-    $('#cat-count').textContent = `${CATS.length} mačiek`;
+    $('#cat-count').textContent = `${store.cats.length} / ${CATS.length}`;
     const grid = $('#cat-grid');
     if (!grid.childElementCount) {
       for (const cat of CATS) {
@@ -264,13 +281,15 @@
       const id = el.dataset.id;
       const cat = catById(id);
       el.querySelector('.cat-name').textContent = cat.name;
+      const locked = !ownsCat(id);
+      el.classList.toggle('locked', locked);
       const tags = [];
-      if (id === l.id) tags.push('Ľ');
-      if (id === r.id) tags.push('P');
-      el.querySelector('.badge').textContent = tags.join(' ');
+      if (!locked && id === l.id) tags.push('Ľ');
+      if (!locked && id === r.id) tags.push('P');
+      el.querySelector('.badge').textContent = locked ? '🔒' : tags.join(' ');
       el.classList.toggle('sel', tags.length > 0);
-      el.querySelector('.hslot').innerHTML = hungerBar(hungerOf(id));
-      paintCat(el.querySelector('canvas'), cat, 84, outfitOf(id), 'full', { sad: hungerOf(id) < 25 });
+      el.querySelector('.hslot').innerHTML = locked ? `<span class="lock-price">${price(catPrice(cat))}</span>` : hungerBar(hungerOf(id));
+      paintCat(el.querySelector('canvas'), cat, 84, outfitOf(id), 'full', { sad: !locked && hungerOf(id) < 25 });
     });
   }
 
@@ -290,6 +309,18 @@
   function renderCatDetail() {
     const cat = catById(detailId);
     $('#cat-title').textContent = cat.name;
+    const locked = !ownsCat(cat.id);
+    for (const sel of ['#cat-hunger', '.assign', '#cat-tabs', '#cat-panel', '#btn-rename']) $(sel).classList.toggle('hidden', locked);
+    $('#cat-buy').classList.toggle('hidden', !locked);
+    if (locked) {
+      const p = catPrice(cat);
+      $('#cat-buy-text').innerHTML = `🔒 <b></b> je zamknutá – ${catTier(p)}. Kúp si ju a môže s tebou spievať, učiť sa aj nosiť oblečenie.`;
+      $('#cat-buy-text b').textContent = cat.name;
+      const b = $('#btn-buy-cat');
+      b.innerHTML = `Kúpiť za ${price(p)}`;
+      b.classList.toggle('poor', store.coins < p);
+      return;
+    }
     updateDetailStatus();
     $$('#cat-tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === catTab));
     const panel = $('#cat-panel');
@@ -322,8 +353,35 @@
     br.textContent = store.catR === cat.id ? '✓ Spieva vpravo' : 'Spievaj vpravo';
   }
 
+  function unlockCat(id) {
+    if (ownsCat(id)) return;
+    store.cats.push(id);
+    store.hunger[id] = { v: HUNGER_START, t: Date.now() };
+    delete store.fat[id];
+    save();
+  }
+  $('#btn-buy-cat').addEventListener('click', () => {
+    audio.init();
+    const cat = catById(detailId);
+    const p = catPrice(cat);
+    if (ownsCat(cat.id)) return;
+    if (store.coins < p) {
+      toast(`Chýba ti ${fmt(p - store.coins)} bodov – zahraj sa alebo sa uč!`);
+      audio.miss(audio.ui);
+      return;
+    }
+    store.coins -= p;
+    unlockCat(cat.id);
+    updateWallets();
+    toast(`${cat.name} je teraz tvoja! 🎉`);
+    audio.preview(cat.voice, 79);
+    stage.chew = 0.6;
+    renderCatDetail();
+  });
+
   function assign(side) {
     const id = detailId;
+    if (!ownsCat(id)) return;
     const key = side === 0 ? 'catL' : 'catR';
     const other = side === 0 ? 'catR' : 'catL';
     if (store[other] === id) store[other] = store[key]; // vymeniť mačky
@@ -563,7 +621,7 @@
     updateWallets();
     const tabs = $('#shop-tabs');
     tabs.innerHTML = '';
-    for (const t of [{ id: 'food', name: 'Jedlo', icon: '🍗' }, ...SLOTS]) {
+    for (const t of [{ id: 'food', name: 'Jedlo', icon: '🍗' }, { id: 'cats', name: 'Mačičky', icon: '🐱' }, ...SLOTS]) {
       const b = document.createElement('button');
       b.className = 'tab' + (shopTab === t.id ? ' active' : '');
       b.innerHTML = `<span>${t.icon}</span>${t.name}`;
@@ -573,7 +631,8 @@
     const active = tabs.querySelector('.active');
     if (active) active.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 
-    const isFood = shopTab === 'food';
+    const isFood = shopTab === 'food' || shopTab === 'cats';
+    if (!ownsCat(shopModel)) shopModel = store.catL;
     $('#shop-model').classList.toggle('hidden', isFood);
     if (!isFood) {
       const m = catById(shopModel);
@@ -582,12 +641,41 @@
     }
     const list = $('#shop-list');
     list.innerHTML = '';
-    if (isFood) renderFoodShop(list); else renderItemShop(list, shopTab);
+    if (shopTab === 'cats') renderCatShop(list);
+    else if (isFood) renderFoodShop(list);
+    else renderItemShop(list, shopTab);
+  }
+
+  function renderCatShop(list) {
+    const locked = CATS.filter(c => !ownsCat(c.id));
+    const p = document.createElement('p');
+    p.className = 'hint';
+    p.textContent = locked.length
+      ? 'Kúp si ďalšie mačičky. Potom s tebou môžu spievať, učiť sa a nosiť oblečenie.'
+      : 'Máš všetky mačičky! 🎉';
+    list.append(p);
+    for (const cat of locked) {
+      const cost = catPrice(cat);
+      const card = document.createElement('div');
+      card.className = 'shop-card';
+      card.innerHTML = '<canvas></canvas><div class="sc-main"><div class="sc-name"></div><div class="sc-sub"></div></div>';
+      card.querySelector('.sc-name').textContent = cat.name;
+      card.querySelector('.sc-sub').textContent = catTier(cost);
+      paintCat(card.querySelector('canvas'), cat, 64, outfitOf(cat.id), 'full', { noBed: true });
+      card.append(buyButton(cost, () => {
+        unlockCat(cat.id);
+        toast(`${cat.name} je teraz tvoja! 🎉`);
+        audio.preview(cat.voice, 79);
+        renderShop();
+      }));
+      list.append(card);
+    }
   }
 
   function cycleModel(dir) {
-    const i = CATS.findIndex(c => c.id === shopModel);
-    shopModel = CATS[(i + dir + CATS.length) % CATS.length].id;
+    const own = ownedCats();
+    const i = Math.max(0, own.findIndex(c => c.id === shopModel));
+    shopModel = own[(i + dir + own.length) % own.length].id;
     audio.blip();
     renderShop();
   }
@@ -773,7 +861,7 @@
 
   // Čas beží, keď je aplikácia zapnutá a na obrazovke (menu, Mačací zbor, obchod, mačky…).
   // Pri učení (Mačacia škola, Diktát – aj výber mačičky) sa čas neodpočítava a limit sa nezapne.
-  const LEARN_SCREENS = ['school', 'lesson', 'dictation', 'prvouka'];
+  const LEARN_SCREENS = ['welcome', 'school', 'lesson', 'dictation', 'prvouka'];
   // keď je čas minutý, dá sa ísť len na výber hry a do učenia
   const OPEN_WHEN_OUT = ['games', ...LEARN_SCREENS];
   let tickN = 0;
@@ -1230,7 +1318,8 @@
   // Za každú správnu odpoveď stúpne vybranej mačičke IQ (začína na 0, najviac 150).
   const IQ_MAX = 150;
   const LESSON_LEN = 10;
-  const LESSON_COINS = 150;   // body na nákupy za každú správnu odpoveď
+  const LESSON_COINS = 120;   // body na nákupy za každú správnu odpoveď
+  const LESSON_PERFECT_COINS = 300; // navyše za 10 z 10
   const IQ_PERFECT_BONUS = 2; // navyše za 10 z 10
 
   const iqOf = id => clampN(Math.round(store.iq[id] || 0), 0, IQ_MAX);
@@ -1257,7 +1346,7 @@
         : 'S ktorou mačičkou sa chceš učiť? Za každú správnu odpoveď jej stúpne IQ (od 0 až do 150).';
     const grid = $('#school-grid');
     grid.innerHTML = '';
-    for (const cat of CATS) {
+    for (const cat of ownedCats()) {
       const b = document.createElement('button');
       b.className = 'cat-card iq-card';
       b.innerHTML = '<canvas></canvas><span class="cat-name"></span><span class="iq-txt"></span><span class="iqbar"><i></i></span>';
@@ -1430,7 +1519,7 @@
     lesson.done = true;
     const perfect = good === LESSON_LEN;
     if (perfect) addIq(cat.id, IQ_PERFECT_BONUS);
-    const coins = good * LESSON_COINS;
+    const coins = good * LESSON_COINS + (perfect ? LESSON_PERFECT_COINS : 0);
     store.coins += coins;
     save();
     $('#end-icon').textContent = perfect ? '🏆' : good >= 7 ? '🎉' : good >= 5 ? '🙂' : '🙀';
@@ -1487,7 +1576,7 @@
   // ---------- Diktát: jedna hra = jedna veta z 5 slov, na konci sa opraví ----------
   const DICT_IQ = 3;           // IQ za vetu bez chyby
   const DICT_MISTAKE_IQ = 1;   // za každú chybu sa odráta 1 IQ (najmenej na 0)
-  const DICT_COINS = 200;      // body na nákupy za vetu bez chyby
+  const DICT_COINS = 500;      // body na nákupy za vetu bez chyby
   const DICT_RATE = 0.62;      // pomalé diktovanie
   const DICT_REPEATS = 2;      // koľkokrát za sebou sa veta prečíta, potom sa dá pustiť znova
 
@@ -1864,7 +1953,8 @@
 
   // ---------- Prvouka: doplňovačky (presúvanie slov do medzier) ----------
   const PV_IQ = 1;        // IQ za každé správne doplnené slovo
-  const PV_COINS = 100;   // body na nákupy za každé správne slovo
+  const PV_COINS = 120;   // body na nákupy za každé správne slovo
+  const PV_ALL_COINS = 200; // navyše, keď je všetko správne
   const VEHICLE_ICONS = { vlak: '🚆', autobus: '🚌', bicykel: '🚲', auto: '🚗', 'loď': '🛳️', lietadlo: '✈️' };
 
   let pv = null;
@@ -2170,7 +2260,7 @@
     const before = iqOf(cat.id);
     addIq(cat.id, good * PV_IQ);
     const gained = iqOf(cat.id) - before;
-    const coins = good * PV_COINS;
+    const coins = good * PV_COINS + (good === total ? PV_ALL_COINS : 0);
     store.coins += coins;
     save();
     pvRender();
@@ -2236,7 +2326,7 @@
     const cats = chosenCats();
     const bonus = cats.reduce((s, c) => s + moodOf(hungerOf(c.id)).bonus, 0);
     const fatPen = cats.reduce((s, c) => s + weightOf(fatOf(c.id)).bonus, 0);
-    const earned = Math.max(0, Math.round(r.score * COIN_RATE * (1 + bonus + fatPen)));
+    const earned = Math.max(0, Math.round((SONG_BASE + SONG_PER_DIFF * current.difficulty) * r.acc * (1 + bonus + fatPen)));
     store.coins += earned;
     // chudnutie: podľa toho, koľko sa mačka v pesničke nachodila
     const slim = [];
@@ -2292,8 +2382,55 @@
   // Po načítaní fontu prekresliť (kvôli rozmerom)
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => game.resize());
 
+  // ---------- Prvé spustenie: výber 2 mačičiek zadarmo ----------
+  let welcomePick = [];
+  function renderWelcome() {
+    const grid = $('#welcome-grid');
+    grid.innerHTML = '';
+    for (const cat of CATS) {
+      const b = document.createElement('button');
+      b.className = 'cat-card' + (welcomePick.includes(cat.id) ? ' sel' : '');
+      b.innerHTML = '<canvas></canvas><span class="cat-name"></span><span class="badge"></span>';
+      b.querySelector('.cat-name').textContent = cat.name;
+      const k = welcomePick.indexOf(cat.id);
+      b.querySelector('.badge').textContent = k >= 0 ? '✓' : '';
+      paintCat(b.querySelector('canvas'), cat, 84, null, 'full');
+      b.addEventListener('click', () => {
+        audio.init();
+        if (welcomePick.includes(cat.id)) welcomePick = welcomePick.filter(x => x !== cat.id);
+        else {
+          welcomePick.push(cat.id);
+          if (welcomePick.length > 2) welcomePick.shift(); // tretia vymení najstaršiu
+          audio.preview(cat.voice, 76);
+        }
+        renderWelcome();
+      });
+      grid.append(b);
+    }
+    const btn = $('#btn-welcome');
+    btn.disabled = welcomePick.length !== 2;
+    btn.textContent = welcomePick.length === 2
+      ? `Hotovo: ${welcomePick.map(id => catById(id).name).join(' a ')} ▶`
+      : `Vyber ešte ${2 - welcomePick.length} ${welcomePick.length === 1 ? 'mačičku' : 'mačičky'}`;
+  }
+  $('#btn-welcome').addEventListener('click', () => {
+    if (welcomePick.length !== 2) return;
+    audio.init();
+    audio.blip();
+    for (const id of welcomePick) unlockCat(id);
+    store.catL = welcomePick[0];
+    store.catR = welcomePick[1];
+    shopModel = store.catL;
+    detailId = store.catL;
+    save();
+    syncGame();
+    go('menu');
+    toast('Vitaj v Mačacom zbore! 🎶');
+  });
+
   save();
-  show('menu');
+  if (store.cats.length < 2) { renderWelcome(); show('welcome'); }
+  else show('menu');
 
   // ---------- Aktualizácie a inštalácia na plochu ----------
   // Service worker: hra ide aj offline, online sa vždy načíta najnovšia verzia.

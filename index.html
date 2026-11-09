@@ -42,6 +42,17 @@
       </div>
     </section>
 
+    <!-- Prvé spustenie: výber 2 mačičiek zadarmo -->
+    <section id="screen-welcome" class="screen panel hidden">
+      <header class="bar">
+        <h2>Vitaj! 🐾</h2>
+        <span class="wallet"></span>
+      </header>
+      <p class="hint welcome-hint">Vyber si <b>2 mačičky</b>, ktoré budú tvoje zadarmo. Ostatné si neskôr môžeš kúpiť v obchode za body z hier a učenia.</p>
+      <div id="welcome-grid" class="grid"></div>
+      <button class="btn primary welcome-go" id="btn-welcome" disabled>Vyber 2 mačičky</button>
+    </section>
+
     <!-- Výber hry -->
     <section id="screen-games" class="screen panel hidden">
       <header class="bar">
@@ -222,7 +233,7 @@
         <button class="slot" data-slot="0"><span class="slot-label">Spieva vľavo</span><canvas></canvas><span class="slot-name"></span><span class="hslot"></span></button>
         <button class="slot" data-slot="1"><span class="slot-label">Spieva vpravo</span><canvas></canvas><span class="slot-name"></span><span class="hslot"></span></button>
       </div>
-      <p class="hint">Ťukni na mačku: nakŕm ju, obleč ju alebo ju vyber do zboru. Všetky sú zadarmo!</p>
+      <p class="hint">Ťukni na mačku: nakŕm ju, obleč ju alebo ju vyber do zboru. Zamknuté mačičky 🔒 si môžeš kúpiť.</p>
       <div id="cat-grid" class="grid"></div>
     </section>
 
@@ -241,6 +252,10 @@
           <button class="btn small soft" type="button" id="rename-reset" title="Vrátiť pôvodné meno">↺</button>
         </form>
         <canvas id="cat-stage"></canvas>
+        <div class="cat-buy hidden" id="cat-buy">
+          <p id="cat-buy-text"></p>
+          <button class="btn primary" id="btn-buy-cat"></button>
+        </div>
         <div id="cat-hunger" class="hunger"></div>
         <div class="assign">
           <button class="btn small" id="btn-set-l"></button>
@@ -284,7 +299,7 @@
           <li><b>Dlhá svietiaca stopa</b> = drž mačku pod ňou až do konca. Keď sa stopa zakrivuje, choď za ňou.</li>
           <li>Každých 10 chytených za sebou zvýši násobič bodov.</li>
           <li>Po 3 chybách hra končí.</li>
-          <li>Za body z pesničiek nakupuješ v <b>Obchode</b> jedlo, oblečenie, okuliare, obojky, vodítka a pelechy vo veľa farbách.</li>
+          <li>Na začiatku si vyberieš <b>2 mačičky zadarmo</b>, ostatné sú zamknuté a dajú sa <b>kúpiť</b>. Body zarábaš pesničkami aj učením (Mačacia škola, Diktát, Prvouka) a v <b>Obchode</b> za ne kupuješ mačičky, jedlo, oblečenie, okuliare, obojky, vodítka a pelechy.</li>
           <li>Mačky po každej pesničke a časom <b>vyhladnú</b>. Nakŕm ich v Mačkách. Najedená mačka (nad 60 %) dá <b>+10 % bodov</b>, hladná (pod 25 %) o 15 % menej.</li>
           <li>Pozor na <b>prekŕmenie</b>: keď kŕmiš plnú mačku, rýchlo priberie. Prejedená mačka sa ťažko hýbe a tučná dá o 10 % menej bodov. Schudne len pohybom v pesničkách, postupne, za viac hier.</li>
           <li><b>Limit</b>: aplikácia sa dá mať zapnutú 6 minút (čas vidíš v menu vľavo hore). Potom príde úloha: buď 5 príkladov na sčítanie a odčítanie do 20, alebo 3× nastaviť ručičkové hodiny. Úlohy sa striedajú, ale častejšie prídu tie, v ktorých robíš chyby. Keď je všetko správne, pribudne ďalších 6 minút. Pri učení (Diktát, Mačacia škola, Prvouka) sa čas neodpočítava a dá sa učiť aj po vypršaní limitu.</li>
