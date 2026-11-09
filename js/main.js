@@ -161,7 +161,10 @@
     if (game.mode === 'play') doPause();
     else if (game.mode === 'paused') doResume();
   };
-  document.addEventListener('visibilitychange', () => { if (document.hidden) doPause(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) doPause();
+    else checkForUpdate();
+  });
 
   $('#btn-resume').addEventListener('click', doResume);
   $('#btn-restart').addEventListener('click', () => { game.quit(); startSong(current); });
@@ -206,6 +209,42 @@
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => game.resize());
 
   show('menu');
+
+  // ---------- Aktualizácie a inštalácia na plochu ----------
+  // Service worker: hra ide aj offline, online sa vždy načíta najnovšia verzia.
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+
+  // Ikona na ploche iPhonu nechá hru „uspatú“ v pozadí. Keď sa k nej vrátiš,
+  // over, či sa na GitHube niečo nezmenilo, a ak áno, načítaj novú verziu
+  // (nie počas rozohranej pesničky).
+  const APP_FILES = ['./', 'css/style.css', 'js/songs.js', 'js/audio.js', 'js/cats.js', 'js/game.js', 'js/main.js'];
+  let fingerprint = null;
+  let checking = false;
+
+  async function readFingerprint() {
+    const parts = await Promise.all(APP_FILES.map(async f => {
+      const res = await fetch(f, { method: 'HEAD', cache: 'no-store' });
+      if (!res.ok) throw new Error(f);
+      return res.headers.get('etag') || res.headers.get('last-modified') || '';
+    }));
+    return parts.join('|');
+  }
+
+  async function checkForUpdate() {
+    if (checking || fingerprint === null || !navigator.onLine) return;
+    if (game.mode === 'play' || game.mode === 'paused') return;
+    checking = true;
+    try {
+      const now = await readFingerprint();
+      if (now !== fingerprint && game.mode !== 'play' && game.mode !== 'paused') location.reload();
+    } catch (e) { /* bez internetu – hrá sa uložená verzia */ }
+    checking = false;
+  }
+
+  readFingerprint().then(f => { fingerprint = f; }).catch(() => {});
+  window.addEventListener('pageshow', e => { if (e.persisted) checkForUpdate(); });
 
   // Prístup pre ladenie z konzoly prehliadača (napr. macaciZbor.game.score)
   window.macaciZbor = { game, audio, store };

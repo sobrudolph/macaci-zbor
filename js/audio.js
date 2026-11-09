@@ -11,11 +11,14 @@ class AudioEngine {
   /** Musí sa zavolať z kliknutia/ťuknutia (prehliadače inak zvuk nepustia). */
   init() {
     if (this.ctx) {
-      if (this.ctx.state === 'suspended') this.ctx.resume();
+      // 'interrupted' = iPhone po hovore / návrate z pozadia
+      if (this.ctx.state !== 'running') this.ctx.resume();
       return;
     }
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
+    // iPhone: hrať aj keď je zapnutý tichý režim (prepínač na boku) – hra je o hudbe
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) { /* staršie iOS */ }
     const c = (this.ctx = new AC({ latencyHint: 'interactive' }));
 
     this.master = c.createGain();

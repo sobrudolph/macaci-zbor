@@ -21,6 +21,22 @@ Každú mačku ovládaš jedným palcom. Keď pochúťku chytíš, mačka zamňa
 - Za 10 chytených pochúťok za sebou sa zvýši násobič bodov (najviac ×4).
 - Po 3 chybách hra končí. **Relax režim** v menu vypne prehru.
 
+## Hraj online
+
+👉 **<https://sobrudolph.github.io/macaci-zbor/>**
+
+### Ikona na ploche iPhonu
+
+1. Otvor adresu hore v **Safari**.
+2. Ťukni na **Zdieľať** (štvorček so šípkou) a vyber **Pridať na plochu**.
+3. Hra sa z plochy otvára na celú obrazovku ako normálna aplikácia a ide aj bez internetu.
+
+Pri každom otvorení s internetom sa načíta najnovšia verzia z GitHubu. Ak bola hra len v pozadí,
+pri návrate na ňu sa overí, či nie je novšia verzia, a hra sa sama obnoví (nikdy nie počas pesničky).
+Pri aktualizácii stačí zmeny nahrať na GitHub, nič ďalšie netreba meniť.
+
+Zvuk hrá aj pri zapnutom tichom režime (iOS 17 a novší).
+
 ## Spustenie na počítači
 
 Stačí ľubovoľný jednoduchý webový server v priečinku projektu, napríklad:
@@ -47,7 +63,9 @@ js/songs.js     – pesničky (zápis melódie + akordy) a generovanie nôt
 js/audio.js     – syntéza zvuku: mňaukanie, bicie, basa, akordy
 js/cats.js      – zoznam mačiek a ich kreslenie, pochúťky
 js/game.js      – herná logika a vykresľovanie
-js/main.js      – menu, výber mačiek, ukladanie rekordov
+js/main.js      – menu, výber mačiek, ukladanie rekordov, kontrola aktualizácií
+sw.js           – service worker (offline režim, vždy najnovšia verzia)
+manifest.webmanifest, icons/ – inštalácia na plochu
 ```
 
 ### Pridanie novej mačky

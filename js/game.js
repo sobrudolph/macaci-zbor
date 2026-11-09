@@ -11,6 +11,16 @@ const FX_COLORS = ['#ffe36e', '#ff8fb8', '#7cc6ff', '#8be08b', '#ffffff', '#b49b
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
+/** Výška výrezu/stavového riadku hore (iPhone), aby skóre nebolo pod hodinami. */
+function safeAreaTop() {
+  const p = document.createElement('div');
+  p.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top,0px)';
+  document.body.appendChild(p);
+  const v = parseFloat(getComputedStyle(p).paddingTop) || 0;
+  p.remove();
+  return v;
+}
+
 class Game {
   constructor(canvas, audio) {
     this.cv = canvas;
@@ -53,7 +63,7 @@ class Game {
     this.dpr = Math.min(window.devicePixelRatio || 1, 2);
     this.cv.width = Math.round(this.W * this.dpr);
     this.cv.height = Math.round(this.H * this.dpr);
-    this.safeTop = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0;
+    this.safeTop = safeAreaTop();
 
     this.half = this.W / 2;
     this.pad = this.half * 0.12;
