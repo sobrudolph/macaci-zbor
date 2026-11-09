@@ -72,7 +72,14 @@ function buildSong(song) {
   const bpb = song.beatsPerBar || 4;
   const sw = song.switchEvery || 1;
   const pulse = song.pulse || 1;
-  const { notes: mel, totalBeats } = parseMelody(song.melody);
+  const parsed = parseMelody(song.melody);
+  let mel = parsed.notes, totalBeats = parsed.totalBeats;
+  // Kánon: druhá mačka spieva tú istú melódiu s oneskorením `canon` taktov
+  if (song.canon) {
+    const shift = song.canon * bpb;
+    mel = [...mel.map(n => Object.assign({}, n, { voice: 0 })), ...mel.map(n => Object.assign({}, n, { beat: n.beat + shift, voice: 1 }))];
+    totalBeats += shift;
+  }
   const chords = parseChords(song.chords);
   const cb = song.chordBeats || bpb;
   const chordAt = beat => (chords.length ? chords[Math.floor(beat / cb + 1e-6) % chords.length] : null);
@@ -88,7 +95,7 @@ function buildSong(song) {
   const notes = [];
   for (const n of mel) {
     const bar = Math.floor(n.beat / bpb + 1e-6);
-    const side = Math.floor(bar / sw) % 2; // mačky sa striedajú po taktoch
+    const side = song.canon ? n.voice : Math.floor(bar / sw) % 2; // mačky sa striedajú po taktoch
     const len = n.dur * spb;
     const isHold = n.hold || n.to != null;
     notes.push({
@@ -195,7 +202,7 @@ const SONGS = [
     bpm: 100,
     chordBeats: 2,
     style: 'soft',
-    speed: 1.9,
+    speed: 1.7,
     snacks: ['cookie', 'candy', 'cookie'],
     bg: ['#1d2463', '#6c5bd4'],
     melody: `C5 C5 G5 G5 | A5 A5 G5:2~ | F5 F5 E5 E5 | D5 D5 C5:2 |
@@ -211,7 +218,7 @@ const SONGS = [
     bpm: 116,
     chordBeats: 2,
     style: 'pop',
-    speed: 1.75,
+    speed: 1.6,
     snacks: ['donut', 'cupcake'],
     bg: ['#ff8a7a', '#ffc35e'],
     melody: `E5 E5 F5 G5 | G5 F5 E5 D5 | C5 C5 D5 E5 | E5:1.5 D5:0.5 D5:2~ |
@@ -230,7 +237,7 @@ const SONGS = [
     chordBeats: 3,
     switchEvery: 2,
     style: 'waltz',
-    speed: 1.9,
+    speed: 1.7,
     snacks: ['yarn', 'fish'],
     bg: ['#16204d', '#4b3f8f'],
     melody: `E5:2 G5 | C5:3~ | D5 E5 F5 | E5:3~ | F5:2 A5 | G5:2 E5 | D5 C5 D5 | E5:3>G5 |
@@ -245,7 +252,7 @@ const SONGS = [
     bpm: 124,
     style: 'pop',
     harmony: true,
-    speed: 1.5,
+    speed: 1.4,
     snacks: ['fish', 'sushi'],
     bg: ['#4fc79a', '#2f7fc9'],
     melody: `G4 B4 D5 B4 | C5 E5:2 C5 | B4 D5 G5 D5 | A4:3~ r |
@@ -264,7 +271,7 @@ const SONGS = [
     pulse: 2,
     chordBeats: 6,
     style: 'waltz',
-    speed: 1.45,
+    speed: 1.35,
     snacks: ['strawberry', 'candy'],
     bg: ['#b77fd6', '#5a4bb8'],
     melody: `r:4 E5 D#5 | E5 D#5 E5 B4 D5 C5 | A4:2 r C4 E4 A4 | B4:2 r E4 G#4 B4 | C5:2 r E4 E5 D#5 |
@@ -281,7 +288,7 @@ const SONGS = [
     bpm: 116,
     style: 'disco',
     harmony: true,
-    speed: 1.35,
+    speed: 1.25,
     snacks: ['fish', 'sushi', 'donut'],
     bg: ['#ff4f9a', '#4b2fbf'],
     melody: `A4 A4:0.5 C5:0.5 E5 A4 | G4 G4:0.5 B4:0.5 D5 G4 | F4 F4:0.5 A4:0.5 C5 F4 | E4 G#4 B4 E5 |
@@ -289,5 +296,146 @@ const SONGS = [
              A4 C5 E5 A5 | G5:2>D5 B4 G4 | F4 A4 C5 F5 | E5 G#5 B5:2~ |
              A5:0.5 G5:0.5 E5 A5:0.5 G5:0.5 E5 | G5:0.5 F5:0.5 D5 G5:0.5 F5:0.5 D5 | F5:0.5 E5:0.5 C5 E5:0.5 D5:0.5 B4 | A4:4~`,
     chords: `Am | G | F | E | Am | G | F | E | Am | G | F | E | Am | G | Dm | Am`,
+  },
+  {
+    id: 'kanon',
+    title: 'Kánon',
+    credit: 'J. Pachelbel · voľné dielo (úprava)',
+    difficulty: 1,
+    bpm: 76,
+    chordBeats: 2,
+    style: 'soft',
+    speed: 1.75,
+    snacks: ['star', 'yarn'],
+    bg: ['#3b4a7a', '#c98fb8'],
+    melody: `F#5:2~ E5:2 | D5:2~ C#5:2 | B4:2~ A4:2 | B4:2 C#5:2 |
+             D5:2 C#5:2 | B4:2 A4:2 | G4:2 F#4:2 | G4:2 E4:2 |
+             D5 F#5 A5:2~ | B4 D5 F#5:2 | G4 B4 D5:2 | G4 B4 C#5:2~ |
+             F#5 E5 D5 C#5 | B4 A4 B4 C#5 | D5 C#5 B4 A4 | G4 F#4 E4 A4 | D5:4~`,
+    chords: `D A | Bm F#m | G D | G A`,
+  },
+  {
+    id: 'jakub',
+    title: 'Brat Jakub (kánon)',
+    credit: 'Ľudová pieseň · obe mačky spievajú naraz!',
+    difficulty: 2,
+    bpm: 100,
+    canon: 2,
+    style: 'soft',
+    speed: 1.6,
+    snacks: ['cookie', 'yarn'],
+    bg: ['#ffb36b', '#e0607e'],
+    melody: `C5 D5 E5 C5 | C5 D5 E5 C5 | E5 F5 G5:2 | E5 F5 G5:2 |
+             G5:0.5 A5:0.5 G5:0.5 F5:0.5 E5 C5 | G5:0.5 A5:0.5 G5:0.5 F5:0.5 E5 C5 | C5 G4 C5:2 | C5 G4 C5:2 |
+             C5 D5 E5 C5 | C5 D5 E5 C5 | E5 F5 G5:2 | E5 F5 G5:2 |
+             G5:0.5 A5:0.5 G5:0.5 F5:0.5 E5 C5 | G5:0.5 A5:0.5 G5:0.5 F5:0.5 E5 C5 | C5 G4 C5:2 | C5 G4 C5:2~`,
+    chords: `C`,
+  },
+  {
+    id: 'zvoncky',
+    title: 'Zvončeky',
+    credit: 'J. L. Pierpont (Jingle Bells) · voľné dielo',
+    difficulty: 2,
+    bpm: 132,
+    style: 'pop',
+    harmony: true,
+    speed: 1.45,
+    snacks: ['candy', 'cookie', 'star'],
+    bg: ['#d6455d', '#2e8b57'],
+    melody: `E5 E5 E5:2 | E5 E5 E5:2 | E5 G5 C5:1.5 D5:0.5 | E5:4~ |
+             F5 F5 F5:1.5 F5:0.5 | F5 E5 E5 E5:0.5 E5:0.5 | E5 D5 D5 E5 | D5:2 G5:2 |
+             E5 E5 E5:2 | E5 E5 E5:2 | E5 G5 C5:1.5 D5:0.5 | E5:4~ |
+             F5 F5 F5:1.5 F5:0.5 | F5 E5 E5 E5:0.5 E5:0.5 | G5 G5 F5 D5 | C5:4~`,
+    chords: `C | C | C | C | F | C | D7 | G7 | C | C | C | C | F | C | G7 | C`,
+  },
+  {
+    id: 'nocna',
+    title: 'Malá nočná hudba',
+    credit: 'W. A. Mozart · voľné dielo (úprava)',
+    difficulty: 2,
+    bpm: 120,
+    style: 'pop',
+    speed: 1.45,
+    snacks: ['star', 'cupcake'],
+    bg: ['#2a3d66', '#9b6be0'],
+    melody: `G4 r:0.5 D4:0.5 G4 r:0.5 D4:0.5 | G4:0.5 D4:0.5 G4:0.5 B4:0.5 D5:2~ | C5 r:0.5 A4:0.5 C5 r:0.5 A4:0.5 | C5:0.5 A4:0.5 F#4:0.5 A4:0.5 D4:2~ |
+             G4:0.5 G4:0.5 B4:0.5 A4:0.5 G4:0.5 G4:0.5 F#4:0.5 F#4:0.5 | A4:0.5 C5:0.5 F#4:0.5 A4:0.5 G4:0.5 G4:0.5 B4:0.5 A4:0.5 | G4:0.5 G4:0.5 F#4:0.5 F#4:0.5 A4:0.5 C5:0.5 F#4:0.5 A4:0.5 | G4:2 r:2 |
+             G4 r:0.5 D4:0.5 G4 r:0.5 D4:0.5 | G4:0.5 D4:0.5 G4:0.5 B4:0.5 D5:2~ | C5 r:0.5 A4:0.5 C5 r:0.5 A4:0.5 | C5:0.5 A4:0.5 F#4:0.5 A4:0.5 D4:2~ |
+             G4:0.5 G4:0.5 B4:0.5 A4:0.5 G4:0.5 G4:0.5 F#4:0.5 F#4:0.5 | A4:0.5 C5:0.5 F#4:0.5 A4:0.5 G4:0.5 G4:0.5 B4:0.5 A4:0.5 | G4:0.5 G4:0.5 F#4:0.5 F#4:0.5 A4:0.5 C5:0.5 F#4:0.5 A4:0.5 | G4:4~`,
+    chords: `G | G | D | D | G | D | D | G | G | G | D | D | G | D | D | G`,
+  },
+  {
+    id: 'jar',
+    title: 'Jar',
+    credit: 'Podľa A. Vivaldiho · voľné dielo',
+    difficulty: 2,
+    bpm: 104,
+    style: 'pop',
+    harmony: true,
+    speed: 1.45,
+    snacks: ['strawberry', 'fish'],
+    bg: ['#5cc16a', '#f5a623'],
+    melody: `r:3 E5 | G#5 G#5 G#5 F#5:0.5 E5:0.5 | B5:3~ B5:0.5 A5:0.5 | G#5 G#5 G#5 F#5:0.5 E5:0.5 | B5:3~ B5:0.5 A5:0.5 |
+             G#5 A5:0.5 B5:0.5 A5 G#5 | F#5:3~ E5 | G#5 G#5 G#5 F#5:0.5 E5:0.5 | B5:3~ B5:0.5 A5:0.5 |
+             G#5 G#5 G#5 F#5:0.5 E5:0.5 | B5:3~ B5:0.5 A5:0.5 | G#5 A5:0.5 B5:0.5 A5 G#5 | F#5:2 D#5 B4 | E5:4~`,
+    chords: `- | E | E | E | E | E | B | E | E | E | E | E | B | E`,
+  },
+  {
+    id: 'kral',
+    title: 'V jaskyni horského kráľa',
+    credit: 'E. Grieg · voľné dielo (úprava)',
+    difficulty: 3,
+    bpm: 120,
+    style: 'disco',
+    speed: 1.3,
+    snacks: ['fish', 'star'],
+    bg: ['#3a2a5a', '#8a2be2'],
+    melody: `A4:0.5 B4:0.5 C5:0.5 D5:0.5 E5:0.5 C5:0.5 E5 | D#5:0.5 B4:0.5 D#5 D5:0.5 A#4:0.5 D5 | A4:0.5 B4:0.5 C5:0.5 D5:0.5 E5:0.5 C5:0.5 E5:0.5 A5:0.5 | G5:0.5 E5:0.5 C5:0.5 E5:0.5 G5:2~ |
+             A4:0.5 B4:0.5 C5:0.5 D5:0.5 E5:0.5 C5:0.5 E5 | D#5:0.5 B4:0.5 D#5 D5:0.5 A#4:0.5 D5 | A4:0.5 B4:0.5 C5:0.5 D5:0.5 E5:0.5 C5:0.5 E5:0.5 A5:0.5 | G5:0.5 E5:0.5 C5:0.5 E5:0.5 A4:2~ |
+             E4:0.5 F#4:0.5 G4:0.5 A4:0.5 B4:0.5 G4:0.5 B4 | A#4:0.5 F#4:0.5 A#4 A4:0.5 F4:0.5 A4 | E4:0.5 F#4:0.5 G4:0.5 A4:0.5 B4:0.5 G4:0.5 B4:0.5 E5:0.5 | D5:0.5 B4:0.5 G4:0.5 B4:0.5 D5:2~ |
+             A4:0.5 B4:0.5 C5:0.5 D5:0.5 E5:0.5 C5:0.5 E5 | D#5:0.5 B4:0.5 D#5 D5:0.5 A#4:0.5 D5 | A4:0.5 B4:0.5 C5:0.5 D5:0.5 E5:0.5 C5:0.5 E5:0.5 A5:0.5 | G5:0.5 E5:0.5 C5:0.5 E5:0.5 A4:2~`,
+    chords: `Am | E | Am | C | Am | E | Am | Am | Em | B | Em | G | Am | E | Am | Am`,
+  },
+  {
+    id: 'turecky',
+    title: 'Turecký pochod',
+    credit: 'W. A. Mozart · voľné dielo (úprava)',
+    difficulty: 3,
+    bpm: 100,
+    beatsPerBar: 2,
+    chordBeats: 2,
+    switchEvery: 2,
+    style: 'pop',
+    speed: 1.3,
+    snacks: ['candy', 'donut'],
+    bg: ['#e0475b', '#7b2d8e'],
+    melody: `B4:0.25 A4:0.25 G#4:0.25 A4:0.25 C5:1 | D5:0.25 C5:0.25 B4:0.25 C5:0.25 E5:1 |
+             F5:0.25 E5:0.25 D#5:0.25 E5:0.25 B5:0.25 A5:0.25 G#5:0.25 A5:0.25 | B5:0.25 A5:0.25 G#5:0.25 A5:0.25 C6:1 |
+             A5:0.5 C6:0.5 B5:0.5 A5:0.5 | G5:0.5 A5:0.5 B5:0.5 A5:0.5 | G5:0.5 A5:0.5 B5:0.5 A5:0.5 | G5:0.5 F#5:0.5 E5:1~ |
+             B4:0.25 A4:0.25 G#4:0.25 A4:0.25 C5:1 | D5:0.25 C5:0.25 B4:0.25 C5:0.25 E5:1 |
+             F5:0.25 E5:0.25 D#5:0.25 E5:0.25 B5:0.25 A5:0.25 G#5:0.25 A5:0.25 | B5:0.25 A5:0.25 G#5:0.25 A5:0.25 C6:1 |
+             A5:0.5 C6:0.5 B5:0.5 A5:0.5 | G#5:0.5 B5:0.5 E5:0.5 G#5:0.5 | A5:0.5 E5:0.5 C5:0.5 B4:0.5 | A4:2~`,
+    chords: `Am | Am | E | Am | Am | G | C | Em | Am | Am | E | Am | Am | E | Am | Am`,
+  },
+  {
+    id: 'rokenrol',
+    title: 'Mňaukový rokenrol',
+    credit: 'Pôvodná skladba',
+    difficulty: 3,
+    bpm: 152,
+    style: 'pop',
+    harmony: true,
+    speed: 1.3,
+    snacks: ['donut', 'fish', 'sushi'],
+    bg: ['#ff6b3d', '#c2185b'],
+    melody: `C5:0.5 E5:0.5 G5:0.5 A5:0.5 Bb5:0.5 A5:0.5 G5:0.5 E5:0.5 | C5:0.5 E5:0.5 G5:0.5 A5:0.5 G5:2~ |
+             F5:0.5 A5:0.5 C6:0.5 A5:0.5 F5:0.5 A5:0.5 C6 | G5:0.5 E5:0.5 C5 E5:2>G5 |
+             G4:0.5 B4:0.5 D5:0.5 E5:0.5 F5:0.5 E5:0.5 D5:0.5 B4:0.5 | F4:0.5 A4:0.5 C5:0.5 D5:0.5 Eb5:0.5 D5:0.5 C5:0.5 A4:0.5 |
+             C5 E5:0.5 G5:0.5 C6 G5 | D5:0.5 C5:0.5 B4:0.5 G4:0.5 C5:2~ |
+             C5:0.5 E5:0.5 G5:0.5 A5:0.5 Bb5:0.5 A5:0.5 G5:0.5 E5:0.5 | C5:0.5 E5:0.5 G5:0.5 A5:0.5 G5:2~ |
+             F5:0.5 A5:0.5 C6:0.5 A5:0.5 F5:0.5 A5:0.5 C6 | G5:0.5 E5:0.5 C5 E5:2>G5 |
+             G4:0.5 B4:0.5 D5:0.5 E5:0.5 F5:0.5 E5:0.5 D5:0.5 B4:0.5 | F4:0.5 A4:0.5 C5:0.5 D5:0.5 Eb5:0.5 D5:0.5 C5:0.5 A4:0.5 |
+             C5 E5:0.5 G5:0.5 C6 G5 | D5:0.5 C5:0.5 B4:0.5 G4:0.5 C5:2~`,
+    chords: `C | C | F | C | G | F | C | G | C | C | F | C | G | F | C | C`,
   },
 ];

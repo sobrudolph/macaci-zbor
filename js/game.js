@@ -3,8 +3,8 @@
  * Herná logika: pohyb mačiek, padajúce pochúťky, vyhodnocovanie, vykresľovanie.
  * Hodiny hry = AudioContext.currentTime, takže obraz je vždy zladený s hudbou.
  */
-const HIT_EARLY = 0.04;   // o koľko skôr (s) sa dá pochúťka chytiť
-const HIT_LATE = 0.09;    // o koľko neskôr (s) sa ešte počíta
+const HIT_EARLY = 0.035;  // o koľko skôr (s) sa dá pochúťka chytiť
+const HIT_LATE = 0.08;    // o koľko neskôr (s) sa ešte počíta
 const MAX_LIVES = 3;
 const FONT = 'Fredoka, system-ui, -apple-system, "Segoe UI", sans-serif';
 const FX_COLORS = ['#ffe36e', '#ff8fb8', '#7cc6ff', '#8be08b', '#ffffff', '#b49bff'];
@@ -71,7 +71,7 @@ class Game {
     this.catSize = Math.min(this.half * 0.62, this.H * 0.14);
     this.catBottom = this.catchY + this.catSize * 0.47; // pusa mačky je presne na čiare chytania
     this.snackR = this.catSize * 0.2;
-    this.tol = this.catSize * 0.36 + this.snackR * 0.5;
+    this.tol = this.catSize * 0.31 + this.snackR * 0.45; // ako presne musí mačka stáť pod pochúťkou
     this.spawnY = -this.snackR * 2;
     for (const c of this.cats) {
       c.x = c.target = this.mode === 'idle' || !c.x ? this.laneX(c.side, 0.5) : this.clampX(c.side, c.x);
@@ -433,6 +433,24 @@ class Game {
     }
   }
 
+  /** Ukazovateľ sýtosti pod mačkou v menu. */
+  _hungerBar(x, y, v) {
+    const g = this.g;
+    const w = this.catSize * 0.9, h = Math.max(6, this.catSize * 0.07);
+    const x0 = x - w / 2 + h;
+    g.fillStyle = 'rgba(30,20,50,0.3)';
+    rrPath(g, x0, y, w - h, h, h / 2); g.fill();
+    g.fillStyle = v >= 60 ? '#8be08b' : v >= 25 ? '#ffd34d' : '#ff6b7d';
+    if (v > 1) { rrPath(g, x0, y, Math.max(h, (w - h) * v / 100), h, h / 2); g.fill(); }
+    drawSnack(g, 'fish', x0 - h * 1.4, y + h / 2, h * 1.1, -0.2);
+    if (v < 25) {
+      g.font = `700 ${Math.round(h * 1.9)}px ${FONT}`;
+      g.textAlign = 'center'; g.textBaseline = 'top';
+      g.fillStyle = '#ffffff';
+      g.fillText('Hladná!', x, y + h * 1.6);
+    }
+  }
+
   // ---------- Vykresľovanie ----------
   _render() {
     const g = this.g, W = this.W, H = this.H;
@@ -473,8 +491,11 @@ class Game {
       this._renderNotes(t);
     }
 
+    const idle = this.mode === 'idle';
     for (const c of this.cats) {
       const def = this.catDefs[c.side];
+      const look = (this.looks && this.looks[c.side]) || {};
+      const hungry = look.hunger != null && look.hunger < 25;
       g.fillStyle = 'rgba(30,20,50,0.18)';
       ell(g, c.x, this.catBottom, this.catSize * 0.42, this.catSize * 0.08);
       g.fill();
@@ -483,11 +504,14 @@ class Game {
         t: this.idleT,
         mouth: holding ? 1 : Math.min(1, c.mouth / 0.12),
         blink: c.blink > 0,
-        sad: c.sad > 0,
+        sad: c.sad > 0 || (idle && hungry && c.mouth <= 0),
         squash: c.squash,
         look: c.look,
         tilt: clamp(c.vel * 0.00025, -0.12, 0.12),
+        outfit: look.outfit,
+        noBed: !idle,
       });
+      if (idle && look.hunger != null) this._hungerBar(c.x, this.catBottom + this.catSize * 0.2, look.hunger);
     }
 
     // častice a texty

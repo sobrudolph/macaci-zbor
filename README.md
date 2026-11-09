@@ -3,8 +3,10 @@
 Rytmická hra pre dva palce. Dve mačky sedia vedľa seba a do rytmu hudby na ne padajú pochúťky.
 Každú mačku ovládaš jedným palcom. Keď pochúťku chytíš, mačka zamňauká tón melódie, takže pesničku vlastne „spievajú“ mačky.
 
-- **28 mačiek, všetky odomknuté a zadarmo.** Nie sú tu reklamy ani nákupy.
-- **6 pesničiek:** 3 pôvodné skladby a 3 melódie, ktoré sú voľné dielo (ľudová Hviezdička, Beethovenova Óda na radosť a Pre Elišku).
+- **29 mačiek, všetky odomknuté a zadarmo.** Nie sú tu reklamy ani nákupy za skutočné peniaze.
+- **14 pesničiek:** pôvodné skladby a melódie, ktoré sú voľné dielo (Hviezdička, Óda na radosť, Pre Elišku, Kánon, Brat Jakub, Zvončeky, Malá nočná hudba, Jar, V jaskyni horského kráľa, Turecký pochod).
+- **Obchod:** za body z pesničiek kupuješ jedlo (granule, konzervy, mlieko, mlsky) a viac ako 50 druhov oblečenia, okuliarov, obojkov, vodítok a pelechov, každý vo veľa farbách.
+- **Starostlivosť:** mačky časom a po pesničkách vyhladnú. Najedené mačky dajú bonus k bodom, hladné menej.
 - Funguje v prehliadači na mobile aj na počítači a nič sa neinštaluje.
 - Grafika aj zvuk sa generujú kódom (Canvas a Web Audio API). Hra nepoužíva žiadne obrázky ani zvukové súbory, takže pri nich nehrozia problémy s licenciami.
 
@@ -62,6 +64,7 @@ css/style.css   – vzhľad
 js/songs.js     – pesničky (zápis melódie + akordy) a generovanie nôt
 js/audio.js     – syntéza zvuku: mňaukanie, bicie, basa, akordy
 js/cats.js      – zoznam mačiek a ich kreslenie, pochúťky
+js/shop.js      – obchod: jedlo, oblečenie, farby a ich kreslenie
 js/game.js      – herná logika a vykresľovanie
 js/main.js      – menu, výber mačiek, ukladanie rekordov, kontrola aktualizácií
 sw.js           – service worker (offline režim, vždy najnovšia verzia)

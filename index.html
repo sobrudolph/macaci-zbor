@@ -26,15 +26,19 @@
 
     <!-- Hlavné menu -->
     <section id="screen-menu" class="screen">
+      <div class="wallet menu-wallet" title="Body na nákupy"></div>
       <div class="menu-top">
         <h1 class="logo">Mačací<span>zbor</span></h1>
         <p class="tagline">Rytmická hra pre dva palce</p>
       </div>
       <div class="menu-buttons">
         <button class="btn primary" data-go="songs">▶ Hrať</button>
-        <button class="btn" data-go="cats">🐾 Mačky</button>
+        <div class="btn-row">
+          <button class="btn" data-go="cats">🐾 Mačky</button>
+          <button class="btn" data-go="shop">🛒 Obchod</button>
+        </div>
         <button class="btn ghost" data-go="help">Ako hrať?</button>
-        <label class="toggle"><input type="checkbox" id="opt-relax"><span>Relax režim (bez prehry)</span></label>
+        <label class="toggle"><input type="checkbox" id="opt-relax"><span>Relax režim (bez prehry, ½ bodov)</span></label>
       </div>
     </section>
 
@@ -43,7 +47,9 @@
       <header class="bar">
         <button class="icon-btn" data-go="menu" aria-label="Späť">←</button>
         <h2>Pesničky</h2>
+        <span class="wallet"></span>
       </header>
+      <p class="warn hidden" id="songs-hint"></p>
       <div id="song-list" class="list"></div>
     </section>
 
@@ -55,11 +61,50 @@
         <span class="pill" id="cat-count"></span>
       </header>
       <div class="slots">
-        <button class="slot active" data-slot="0"><span class="slot-label">Ľavá</span><canvas></canvas><span class="slot-name"></span></button>
-        <button class="slot" data-slot="1"><span class="slot-label">Pravá</span><canvas></canvas><span class="slot-name"></span></button>
+        <button class="slot" data-slot="0"><span class="slot-label">Spieva vľavo</span><canvas></canvas><span class="slot-name"></span><span class="hslot"></span></button>
+        <button class="slot" data-slot="1"><span class="slot-label">Spieva vpravo</span><canvas></canvas><span class="slot-name"></span><span class="hslot"></span></button>
       </div>
-      <p class="hint">Ťukni na pozíciu hore a potom vyber mačku. Všetky sú odomknuté a zadarmo!</p>
+      <p class="hint">Ťukni na mačku: nakŕm ju, obleč ju alebo ju vyber do zboru. Všetky sú zadarmo!</p>
       <div id="cat-grid" class="grid"></div>
+    </section>
+
+    <!-- Detail mačky: kŕmenie a šatník -->
+    <section id="screen-cat" class="screen panel hidden">
+      <header class="bar">
+        <button class="icon-btn" data-go="cats" aria-label="Späť">←</button>
+        <h2 id="cat-title"></h2>
+        <span class="wallet"></span>
+      </header>
+      <div class="cat-scroll">
+        <canvas id="cat-stage"></canvas>
+        <div id="cat-hunger" class="hunger"></div>
+        <div class="assign">
+          <button class="btn small" id="btn-set-l"></button>
+          <button class="btn small" id="btn-set-r"></button>
+        </div>
+        <div class="seg" id="cat-tabs">
+          <button data-tab="feed">🍗 Nakŕmiť</button>
+          <button data-tab="wardrobe">👗 Šatník</button>
+        </div>
+        <div id="cat-panel"></div>
+      </div>
+    </section>
+
+    <!-- Obchod -->
+    <section id="screen-shop" class="screen panel hidden">
+      <header class="bar">
+        <button class="icon-btn" data-go="menu" aria-label="Späť">←</button>
+        <h2>Obchod</h2>
+        <span class="wallet"></span>
+      </header>
+      <div class="tabs" id="shop-tabs"></div>
+      <div class="model hidden" id="shop-model">
+        <button class="icon-btn" id="model-prev" aria-label="Predošlá mačka">‹</button>
+        <canvas id="model-cv"></canvas>
+        <span>Skúša: <b id="model-name"></b></span>
+        <button class="icon-btn" id="model-next" aria-label="Ďalšia mačka">›</button>
+      </div>
+      <div id="shop-list" class="list"></div>
     </section>
 
     <!-- Návod -->
@@ -74,7 +119,9 @@
           <li>Pochúťky padajú <b>do rytmu hudby</b>. Chyť ich do pusy a mačka zamňauká tón melódie.</li>
           <li><b>Dlhá svietiaca stopa</b> = drž mačku pod ňou až do konca. Keď sa stopa zakrivuje, choď za ňou.</li>
           <li>Každých 10 chytených za sebou zvýši násobič bodov.</li>
-          <li>Po 3 chybách hra končí. V <b>Relax režime</b> sa prehrať nedá.</li>
+          <li>Po 3 chybách hra končí. V <b>Relax režime</b> sa prehrať nedá, ale dostaneš len polovicu bodov.</li>
+          <li>Za body z pesničiek nakupuješ v <b>Obchode</b> jedlo, oblečenie, okuliare, obojky, vodítka a pelechy vo veľa farbách.</li>
+          <li>Mačky po každej pesničke a časom <b>vyhladnú</b>. Nakŕm ich v Mačkách. Najedená mačka (nad 60 %) dá <b>+10 % bodov</b>, hladná (pod 25 %) o 15 % menej.</li>
           <li>Na počítači: <kbd>A</kbd> <kbd>D</kbd> ľavá mačka, <kbd>←</kbd> <kbd>→</kbd> pravá mačka. Myš ovláda mačku na strane, kde je kurzor. <kbd>Esc</kbd> = pauza.</li>
         </ul>
       </div>
@@ -101,15 +148,21 @@
           <div><dt>Chytené</dt><dd id="res-acc"></dd></div>
           <div><dt>Max. combo</dt><dd id="res-combo"></dd></div>
         </dl>
+        <div class="res-earn" id="res-earn"></div>
         <button class="btn primary" id="btn-again">Hrať znova</button>
-        <button class="btn" id="btn-songs">Pesničky</button>
+        <div class="btn-row">
+          <button class="btn" id="btn-songs">Pesničky</button>
+          <button class="btn" id="btn-menu">Do menu</button>
+        </div>
       </div>
     </section>
+    <div id="toast" role="status"></div>
   </div>
 
   <script src="js/songs.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/cats.js"></script>
+  <script src="js/shop.js"></script>
   <script src="js/game.js"></script>
   <script src="js/main.js"></script>
 </body>

@@ -11,6 +11,7 @@
 const CATS = [
   { id: 'mica', name: 'Mica', body: '#a9afbd', belly: '#e6e9ef', pattern: 'solid', eye: '#58b368', voice: { wave: 'sawtooth', formant: 1.0 } },
   { id: 'rysavec', name: 'Ryšavec', body: '#f5a14a', belly: '#ffe0b8', pattern: 'tabby', pc: '#d8742a', eye: '#6aa84f', voice: { wave: 'sawtooth', formant: 1.05 } },
+  { id: 'elza', name: 'Elza', body: '#fbfbfd', belly: '#ffffff', pattern: 'solid', eye: '#5aa6e8', acc: 'braid', accColor: '#ffe08a', wear: { body: 'dress:pink' }, voice: { wave: 'triangle', formant: 1.3 } },
   { id: 'murko', name: 'Murko', body: '#3a3640', belly: '#57525e', pattern: 'solid', eye: '#f5c84c', acc: 'bell', accColor: '#e0475b', voice: { wave: 'square', formant: 0.9 } },
   { id: 'snehulka', name: 'Snehulka', body: '#fbfbfd', belly: '#ffffff', pattern: 'solid', eye: '#5aa6e8', acc: 'bow', accColor: '#ff7eb6', voice: { wave: 'triangle', formant: 1.2 } },
   { id: 'fliacik', name: 'Fliačik', body: '#fdf6ee', belly: '#ffffff', pattern: 'calico', eye: '#8bc34a', acc: 'flower', accColor: '#ff9fc6', voice: { wave: 'sawtooth', formant: 1.1 } },
@@ -387,6 +388,27 @@ function drawHeadAcc(g, cat, t) {
     case 'heart':
       heartPath(g, 20, -88, 8); fillStroke(g, col);
       break;
+    case 'braid': {
+      // blond ofina a vrkoč cez rameno
+      g.beginPath();
+      g.moveTo(-29, -72); g.bezierCurveTo(-26, -97, 12, -100, 29, -80);
+      g.bezierCurveTo(16, -86, -2, -86, -14, -79);
+      g.quadraticCurveTo(-22, -74, -29, -72);
+      g.closePath(); fillStroke(g, col);
+      g.strokeStyle = 'rgba(200,150,40,0.5)'; g.lineWidth = 1.5;
+      g.beginPath(); g.moveTo(-18, -84); g.quadraticCurveTo(0, -94, 18, -86); g.stroke();
+      g.strokeStyle = OUT; g.lineWidth = 2.5;
+      for (let i = 0; i < 7; i++) {
+        const yy = -74 + i * 8.5, xx = 26 + i * 1.6;
+        ell(g, xx, yy, 7 - i * 0.45, 5.6, i % 2 ? 0.45 : -0.45); fillStroke(g, col);
+      }
+      const by = -74 + 7 * 8.5 - 2, bx = 26 + 7 * 1.6;
+      g.beginPath(); g.moveTo(bx, by); g.lineTo(bx - 8, by - 5); g.lineTo(bx - 8, by + 5); g.closePath(); fillStroke(g, '#ff7eb6');
+      g.beginPath(); g.moveTo(bx, by); g.lineTo(bx + 8, by - 5); g.lineTo(bx + 8, by + 5); g.closePath(); fillStroke(g, '#ff7eb6');
+      circ(g, bx, by, 2.6); fillStroke(g, '#ff7eb6');
+      g.beginPath(); g.moveTo(bx - 1, by + 2); g.lineTo(bx - 3, by + 9); g.moveTo(bx + 1, by + 2); g.lineTo(bx + 4, by + 8); g.stroke();
+      break;
+    }
   }
 }
 
@@ -414,18 +436,32 @@ function drawNeckAcc(g, cat) {
  * Nakreslí mačku. (x, y) = stred spodku mačky, size = výška mačky v px.
  * st: { t, mouth 0..1, blink, sad, squash 0..1, look -1..1, tilt }
  */
+function catOutfit(cat, own) {
+  // vlastné oblečenie mačky (napr. Elzine šaty) + to, čo jej hráč obliekol
+  if (cat.wear && !cat._wear) cat._wear = resolveOutfit(cat.wear);
+  if (!cat.wear && !own) return null;
+  return Object.assign({}, cat._wear || {}, own || {});
+}
+
 function drawCat(g, cat, x, y, size, st = {}) {
   const t = st.t || 0;
   const sq = st.squash || 0;
   const k = size / 105;
+  const outfit = typeof resolveOutfit === 'function' ? catOutfit(cat, st.outfit) : null;
+  const showBase = !(st.outfit && cat.acc && st.outfit[baseAccSlot(cat.acc)]);
+  const bed = outfit && outfit.bed && !st.noBed;
   g.save();
   g.translate(x, y);
   g.scale(k, k);
+  if (bed) drawOutfitLayer(g, { bed: outfit.bed }, 'bedBack', t);
   if (st.tilt) g.rotate(st.tilt);
   g.scale(1 + sq * 0.08, 1 - sq * 0.08);
   g.lineJoin = 'round';
   g.lineCap = 'round';
   const isSiam = cat.pattern === 'siamese';
+  const layer = name => {
+    if (outfit) { drawOutfitLayer(g, outfit, name, t); g.strokeStyle = OUT; g.lineWidth = 2.5; }
+  };
 
   // chvost
   const wag = Math.sin(t * 3.1 + cat.seed) * 7;
@@ -435,20 +471,24 @@ function drawCat(g, cat, x, y, size, st = {}) {
   g.strokeStyle = OUT; g.lineWidth = 14; g.stroke();
   g.strokeStyle = isSiam ? cat.pc : cat.pattern === 'rainbow' ? RAINBOW[5] : cat.body;
   g.lineWidth = 8.5; g.stroke();
+  layer('back');
 
   // telo
   g.lineWidth = 3;
   g.strokeStyle = OUT;
   ell(g, 0, -30, 37, 30);
   g.fillStyle = cat.body; g.fill();
-  g.save(); ell(g, 0, -30, 37, 30); g.clip(); bodyPattern(g, cat); g.restore();
+  g.save(); ell(g, 0, -30, 37, 30); g.clip(); bodyPattern(g, cat); layer('clip'); g.restore();
+  g.strokeStyle = OUT; g.lineWidth = 3;
   ell(g, 0, -30, 37, 30); g.stroke();
+  layer('over');
 
   // labky
   const paw = cat.pattern === 'socks' || cat.pattern === 'tuxedo' ? '#fbfbfd' : isSiam ? cat.pc : cat.body;
   g.lineWidth = 2.5;
   ell(g, -14, -4, 10, 6.5); fillStroke(g, paw);
   ell(g, 14, -4, 10, 6.5); fillStroke(g, paw);
+  if (bed) drawOutfitLayer(g, { bed: outfit.bed }, 'bedFront', t);
 
   // hlava
   g.save();
@@ -470,10 +510,13 @@ function drawCat(g, cat, x, y, size, st = {}) {
   g.strokeStyle = OUT; g.lineWidth = 3;
   ell(g, 0, -62, 31, 28); g.stroke();
   drawFace(g, cat, st);
-  drawHeadAcc(g, cat, t);
+  layer('eyes');
+  if (showBase) drawHeadAcc(g, cat, t);
+  layer('head');
   g.restore();
 
-  drawNeckAcc(g, cat);
+  if (showBase) drawNeckAcc(g, cat);
+  layer('front');
   g.restore();
 }
 
