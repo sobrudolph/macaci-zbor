@@ -14,7 +14,7 @@
     try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) { /* ignore */ }
   }
   const store = Object.assign({ catL: 'mica', catR: 'rysavec', relax: false, best: {} }, load());
-  for (const k of ['best', 'owned', 'outfits', 'hunger', 'names', 'fat']) {
+  for (const k of ['best', 'owned', 'outfits', 'hunger', 'names', 'fat', 'iq', 'skills']) {
     if (!store[k] || typeof store[k] !== 'object') store[k] = {};
   }
   // vlastné mená mačiek (pôvodné meno ostáva v baseName)
@@ -33,6 +33,7 @@
   const chosenCats = () => [catById(store.catL), catById(store.catR)];
 
   // ---------- Body (peňaženka) ----------
+  const COIN_RATE = 0.1; // z bodov v pesničke ide na nákupy len 10 % – treba hrať častejšie
   const COIN = '<svg class="coin" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#ffd34d" stroke="#c8961a" stroke-width="1.6"/><g fill="#c8961a"><ellipse cx="10" cy="12.4" rx="3.4" ry="2.8"/><circle cx="5.9" cy="8.6" r="1.5"/><circle cx="8.3" cy="6.3" r="1.5"/><circle cx="11.7" cy="6.3" r="1.5"/><circle cx="14.1" cy="8.6" r="1.5"/></g></svg>';
   const fmt = n => Math.round(n).toLocaleString('sk-SK');
   const price = n => COIN + fmt(n);
@@ -149,7 +150,7 @@
   }
 
   // ---------- Obrazovky ----------
-  const SCREENS = ['menu', 'songs', 'cats', 'cat', 'shop', 'help', 'pause', 'result'];
+  const SCREENS = ['menu', 'games', 'songs', 'school', 'lesson', 'cats', 'cat', 'shop', 'help', 'pause', 'result'];
   let screen = 'menu';
   function show(name) {
     screen = name;
@@ -161,6 +162,8 @@
 
   function go(name) {
     if (name === 'songs') renderSongs();
+    if (name === 'school') renderSchool();
+    if (name !== 'lesson') lessonStop();
     if (name === 'cats') renderCats();
     if (name === 'shop') renderShop();
     if (name === 'cat') { $('#rename').classList.add('hidden'); renderCatDetail(); }
@@ -251,7 +254,7 @@
       el.querySelector('.hslot').innerHTML = hungerBar(hungerOf(cat.id));
       paintCat(el.querySelector('canvas'), cat, 76, outfitOf(cat.id), 'full', { noBed: true });
     });
-    $$('.cat-card').forEach(el => {
+    $$('#cat-grid .cat-card').forEach(el => {
       const id = el.dataset.id;
       const cat = catById(id);
       el.querySelector('.cat-name').textContent = cat.name;
@@ -302,7 +305,10 @@
       <div class="hrow w"><span>Váha</span><b class="${wt.cls}">${wt.label}</b></div>
       <div class="hbar fat"><i style="width:${Math.max(3, Math.round(fat))}%"></i></div>
       <div class="hnote">${fat >= 60 ? `Prejedená mačka sa ťažko hýbe a dá −${Math.round(-wt.bonus * 100)} % bodov. Schudne len pohybom v hre – bude to trvať viac pesničiek.` :
-        fat >= 25 ? 'Je ťažšia a pomalšia. Čím viac sa v pesničkách hýbe, tým rýchlejšie schudne.' : 'Keď ju prekŕmiš (nad 100 % sýtosti), rýchlo priberie.'}</div>`;
+        fat >= 25 ? 'Je ťažšia a pomalšia. Čím viac sa v pesničkách hýbe, tým rýchlejšie schudne.' : 'Keď ju prekŕmiš (nad 100 % sýtosti), rýchlo priberie.'}</div>
+      <div class="hrow w"><span>IQ</span><b class="iq">${iqOf(cat.id)} / ${IQ_MAX} · ${iqLabel(iqOf(cat.id))}</b></div>
+      <div class="iqbar"><i style="width:${Math.max(2, iqOf(cat.id) / IQ_MAX * 100)}%"></i></div>
+      <div class="hnote">IQ stúpa za správne odpovede v Mačacej škole.</div>`;
     const bl = $('#btn-set-l'), br = $('#btn-set-r');
     bl.classList.toggle('on', store.catL === cat.id);
     br.classList.toggle('on', store.catR === cat.id);
@@ -726,6 +732,33 @@
   const rand = n => Math.floor(Math.random() * n);
   const fmtTime = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
+  /*
+   * PRAVIDLO VÝBERU ÚLOH (platí aj pre úlohy, ktoré pribudnú v budúcnosti):
+   *  - úlohy sa striedajú (vyberie sa tá, ktorá bola najdlhšie nepoužitá),
+   *  - ak v niektorých robí chyby a v iných nie, dávajú sa len tie, v ktorých robí chyby,
+   *  - úloha, ktorú ešte poriadne neskúšal (menej ako 5 odpovedí), sa berie ako úloha s chybami.
+   * Do štatistiky sa počíta posledných SKILL_WINDOW odpovedí z limitu aj z Mačacej školy.
+   * Novú úlohu stačí pridať do TASK_TYPES a pri odpovediach volať recordSkill(typ, správne).
+   */
+  const TASK_TYPES = ['math', 'clock'];
+  const SKILL_WINDOW = 10;
+  function skillOf(t) {
+    const s = store.skills[t];
+    if (s && Array.isArray(s.log)) return s;
+    return (store.skills[t] = { log: [], last: 0 });
+  }
+  function recordSkill(t, ok) {
+    const s = skillOf(t);
+    s.log.push(ok ? 1 : 0);
+    if (s.log.length > SKILL_WINDOW) s.log.splice(0, s.log.length - SKILL_WINDOW);
+  }
+  const hasMistakes = t => { const l = skillOf(t).log; return l.length < 5 || l.includes(0); };
+  function pickTask() {
+    const weak = TASK_TYPES.filter(hasMistakes);
+    const pool = weak.length ? weak : TASK_TYPES;
+    return pool.slice().sort((a, b) => skillOf(a).last - skillOf(b).last)[0];
+  }
+
   function updateTimePill() {
     const el = $('#time-left');
     el.textContent = '⏱ ' + fmtTime(Math.max(0, store.timeLeft));
@@ -751,7 +784,10 @@
     limitOpen = true;
     if (game.mode === 'play') doPause(); // pesnička počká, po splnení úloh pokračuje
     // typ úlohy sa uloží, aby sa nedal "prehodiť" zatvorením aplikácie
-    if (store.limitTask !== 'math' && store.limitTask !== 'clock') store.limitTask = Math.random() < 0.5 ? 'math' : 'clock';
+    if (!TASK_TYPES.includes(store.limitTask)) {
+      store.limitTask = pickTask();
+      skillOf(store.limitTask).last = Date.now();
+    }
     task = store.limitTask;
     save();
     $('#limit-min').textContent = LIMIT_MIN;
@@ -838,6 +874,7 @@
     p.ans = Number(quiz.input);
     p.done = true;
     const ok = p.ans === p.res;
+    recordSkill('math', ok);
     feedbackSound(ok);
     quiz.busy = true;
     renderQuiz(ok ? 'ok' : 'bad');
@@ -907,9 +944,13 @@
 
   function drawClock() {
     const size = Math.round(Math.max(200, Math.min(290, window.innerWidth - 90, window.innerHeight * 0.42)));
-    const g = prepCanvas(clockCv, size, size);
+    clockGeo = paintCatClock(clockCv, size, clk.cur, clk.ghost);
+  }
+
+  /** Nakreslí mačičkovské hodiny s časom cur (minúty od 12:00), ghost = správny čas ako zelený tieň. */
+  function paintCatClock(cv, size, cur, ghost) {
+    const g = prepCanvas(cv, size, size);
     const R = size * 0.37, cx = size / 2, cy = size * 0.53;
-    clockGeo = { cx, cy, R };
     g.lineJoin = 'round'; g.lineCap = 'round';
 
     // chvost (vpravo dole, za hlavou)
@@ -989,8 +1030,8 @@
     }
 
     // správne ručičky (po chybe) ako priesvitný zelený tieň
-    if (clk.ghost != null) drawHands(g, cx, cy, R, clk.ghost, 'rgba(46,158,69,0.55)', 'rgba(46,158,69,0.55)');
-    drawHands(g, cx, cy, R, clk.cur, '#ff5f9e', '#7d6bd6');
+    if (ghost != null) drawHands(g, cx, cy, R, ghost, 'rgba(46,158,69,0.55)', 'rgba(46,158,69,0.55)');
+    drawHands(g, cx, cy, R, cur, '#ff5f9e', '#7d6bd6');
 
     // os ručičiek = ružový mačací nosík
     const nr = R * 0.1;
@@ -1002,6 +1043,7 @@
     g.closePath();
     g.fillStyle = '#ff7aa8'; g.fill();
     g.lineWidth = 2.5; g.strokeStyle = CAT_LINE; g.stroke();
+    return { cx, cy, R };
   }
 
   function drawHands(g, cx, cy, R, v, hourCol, minCol) {
@@ -1079,6 +1121,7 @@
     p.set = clk.cur;
     p.done = true;
     const ok = clk.cur === onDial(p.h, p.m);
+    recordSkill('clock', ok);
     feedbackSound(ok);
     clk.busy = true;
     if (!ok) clk.ghost = onDial(p.h, p.m); // ukáž, kde mali byť ručičky
@@ -1142,6 +1185,256 @@
   updateTimePill();
   if (store.timeLeft <= 0) openLimit(); // zatvorenie a otvorenie aplikácie limit neobíde
 
+  // ---------- Mačacia škola: 10 otázok, vždy 3 možnosti a len jedna správna ----------
+  // Striedajú sa príklady (sčítanie/odčítanie do 20) a čítanie času z ručičkových hodín.
+  // Za každú správnu odpoveď stúpne vybranej mačičke IQ (začína na 0, najviac 150).
+  const IQ_MAX = 150;
+  const LESSON_LEN = 10;
+  const LESSON_COINS = 150;   // body na nákupy za každú správnu odpoveď
+  const IQ_PERFECT_BONUS = 2; // navyše za 10 z 10
+
+  const iqOf = id => clampN(Math.round(store.iq[id] || 0), 0, IQ_MAX);
+  function addIq(id, n) { store.iq[id] = clampN((store.iq[id] || 0) + n, 0, IQ_MAX); }
+  function iqLabel(v) {
+    if (v >= 150) return 'Génius';
+    if (v >= 120) return 'Profesorka';
+    if (v >= 90) return 'Múdra';
+    if (v >= 60) return 'Šikovná';
+    if (v >= 30) return 'Žiačka';
+    return 'Mačiatko';
+  }
+  const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = rand(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+  function renderSchool() {
+    const grid = $('#school-grid');
+    grid.innerHTML = '';
+    for (const cat of CATS) {
+      const b = document.createElement('button');
+      b.className = 'cat-card iq-card';
+      b.innerHTML = '<canvas></canvas><span class="cat-name"></span><span class="iq-txt"></span><span class="iqbar"><i></i></span>';
+      b.querySelector('.cat-name').textContent = cat.name;
+      const v = iqOf(cat.id);
+      b.querySelector('.iq-txt').textContent = `IQ ${v}`;
+      b.querySelector('.iqbar i').style.width = Math.max(2, (v / IQ_MAX) * 100) + '%';
+      paintCat(b.querySelector('canvas'), cat, 84, outfitOf(cat.id), 'full');
+      b.addEventListener('click', () => { audio.init(); audio.blip(); startLesson(cat.id); });
+      grid.append(b);
+    }
+  }
+
+  /** 3 možnosti: jedna správna + 2 rôzne nesprávne (najprv tie, ktoré sa ľahko pomýlia). */
+  function pickWrong(primary, secondary, ok, keyOf) {
+    const seen = new Set([keyOf(ok)]), out = [];
+    for (const c of [...shuffle(primary), ...shuffle(secondary)]) {
+      if (c == null || seen.has(keyOf(c))) continue;
+      seen.add(keyOf(c));
+      out.push(c);
+      if (out.length === 2) break;
+    }
+    return out;
+  }
+
+  function mathQuestion(seen) {
+    let q;
+    do {
+      const op = Math.random() < 0.5 ? '+' : '−';
+      let a, b;
+      if (op === '+') { a = 1 + rand(19); b = 1 + rand(20 - a); } else { a = 2 + rand(19); b = 1 + rand(a - 1); }
+      q = { type: 'math', a, b, op, res: op === '+' ? a + b : a - b };
+    } while (seen.has(q.a + q.op + q.b));
+    seen.add(q.a + q.op + q.b);
+    const inRange = v => (v >= 0 && v <= 20 ? v : null);
+    const r = q.res;
+    const wrong = pickWrong([r - 1, r + 1, r - 2, r + 2].map(inRange), [r - 3, r + 3, r - 10, r + 10, r - 4, r + 4].map(inRange), r, v => v);
+    q.opts = shuffle([{ label: String(r), ok: true }, ...wrong.map(v => ({ label: String(v), ok: false }))]);
+    return q;
+  }
+
+  function clockQuestion(seen) {
+    let h, m;
+    do { h = 1 + rand(12); m = rand(12) * 5; } while (seen.has(h * 60 + m));
+    seen.add(h * 60 + m);
+    const wrapH = x => ((((x - 1) % 12) + 12) % 12) + 1;
+    const T = (hh, mm) => ({ h: hh, m: mm });
+    const primary = [
+      m !== 0 && m / 5 !== h ? T(m / 5, (h % 12) * 5) : null, // zamenené ručičky
+      T(wrapH(h + 1), m),                                    // o hodinu viac
+      T(wrapH(h - 1), m),                                    // o hodinu menej
+    ];
+    const secondary = [T(h, (m + 5) % 60), T(h, (m + 55) % 60), T(h, (m + 10) % 60), T(h, (m + 50) % 60), T(wrapH(h + 2), m)];
+    const wrong = pickWrong(primary, secondary, T(h, m), t => t.h * 60 + t.m);
+    return {
+      type: 'clock', h, m,
+      opts: shuffle([{ label: fmtHM(h, m), ok: true }, ...wrong.map(t => ({ label: fmtHM(t.h, t.m), ok: false }))]),
+    };
+  }
+
+  let lesson = null;
+  let lessonCatId = null;
+
+  function startLesson(catId) {
+    lessonStop();
+    lessonCatId = catId;
+    const seenM = new Set(), seenC = new Set();
+    const qs = [];
+    for (let i = 0; i < LESSON_LEN; i++) qs.push(i % 2 === 0 ? mathQuestion(seenM) : clockQuestion(seenC));
+    lesson = { catId, qs, i: 0, good: 0, busy: false, mood: null, moodT: 0, t: 0, startIq: iqOf(catId), done: false, raf: 0 };
+    $('#lesson-card').classList.remove('hidden');
+    $('#lesson-end').classList.add('hidden');
+    show('lesson');
+    updateLessonCat();
+    renderLessonQ();
+    lessonLoop();
+  }
+
+  function lessonStop() {
+    if (lesson && lesson.raf) cancelAnimationFrame(lesson.raf);
+    lesson = null;
+  }
+
+  function updateLessonCat() {
+    const cat = catById(lessonCatId);
+    const v = iqOf(cat.id);
+    $('#lesson-name').textContent = cat.name;
+    $('#lesson-iq').textContent = `IQ ${v} / ${IQ_MAX} · ${iqLabel(v)}`;
+    $('#lesson-iqbar').style.width = Math.max(2, (v / IQ_MAX) * 100) + '%';
+  }
+
+  function renderLessonQ() {
+    const q = lesson.qs[lesson.i];
+    $('#lesson-progress').textContent = `${lesson.i + 1} / ${LESSON_LEN}`;
+    const cv = $('#lesson-clock');
+    if (q.type === 'math') {
+      $('#lesson-ask').textContent = 'Koľko je?';
+      $('#lesson-q').textContent = `${q.a} ${q.op} ${q.b} = ?`;
+      cv.classList.add('hidden');
+    } else {
+      $('#lesson-ask').textContent = 'Koľko je hodín?';
+      $('#lesson-q').textContent = '';
+      cv.classList.remove('hidden');
+      const size = Math.round(Math.max(180, Math.min(250, window.innerWidth - 110, window.innerHeight * 0.32)));
+      paintCatClock(cv, size, onDial(q.h, q.m), null);
+    }
+    const opts = $('#lesson-options');
+    opts.innerHTML = '';
+    opts.classList.toggle('time', q.type === 'clock');
+    q.opts.forEach((o, idx) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = o.label;
+      b.addEventListener('click', () => answerLesson(idx));
+      opts.append(b);
+    });
+    const card = $('#lesson-card');
+    card.style.animation = 'none';
+    void card.offsetWidth;
+    card.style.animation = '';
+  }
+
+  function popIq(text) {
+    const el = $('#iq-plus');
+    el.textContent = text;
+    el.classList.remove('show');
+    void el.offsetWidth;
+    el.classList.add('show');
+  }
+
+  function answerLesson(idx) {
+    if (!lesson || lesson.busy || lesson.done) return;
+    audio.init();
+    const q = lesson.qs[lesson.i];
+    const ok = q.opts[idx].ok;
+    lesson.busy = true;
+    recordSkill(q.type, ok); // aj škola sa počíta do pravidla výberu úloh v limite
+    [...$('#lesson-options').children].forEach((b, i) => {
+      b.disabled = true;
+      if (q.opts[i].ok) b.classList.add('ok');
+      else if (i === idx) b.classList.add('bad');
+    });
+    const cat = catById(lesson.catId);
+    if (ok) {
+      lesson.good++;
+      const before = iqOf(cat.id);
+      addIq(cat.id, 1);
+      if (iqOf(cat.id) > before) popIq('+1 IQ');
+      audio.preview(cat.voice, 79);
+      lesson.mood = 'happy';
+    } else {
+      audio.miss(audio.ui);
+      lesson.mood = 'sad';
+    }
+    lesson.moodT = 0;
+    save();
+    updateLessonCat();
+    const cur = lesson;
+    setTimeout(() => {
+      if (lesson !== cur) return;
+      lesson.busy = false;
+      lesson.i++;
+      if (lesson.i < LESSON_LEN) renderLessonQ(); else endLesson();
+    }, ok ? 900 : 1700);
+  }
+
+  function endLesson() {
+    const cat = catById(lesson.catId);
+    const good = lesson.good;
+    lesson.done = true;
+    const perfect = good === LESSON_LEN;
+    if (perfect) addIq(cat.id, IQ_PERFECT_BONUS);
+    const coins = good * LESSON_COINS;
+    store.coins += coins;
+    save();
+    $('#end-icon').textContent = perfect ? '🏆' : good >= 7 ? '🎉' : good >= 5 ? '🙂' : '🙀';
+    $('#end-title').textContent = `${good} z ${LESSON_LEN} správne`;
+    const stars = $('#end-stars');
+    stars.innerHTML = '';
+    const n = good >= 9 ? 3 : good >= 7 ? 2 : good >= 5 ? 1 : 0;
+    for (let i = 0; i < 3; i++) {
+      const s = document.createElement('span');
+      s.textContent = '★';
+      if (i < n) { s.className = 'on'; s.style.animationDelay = `${0.15 + i * 0.18}s`; }
+      stars.append(s);
+    }
+    const now = iqOf(cat.id);
+    $('#end-iq').textContent = `${cat.name}: IQ ${lesson.startIq} → ${now}` +
+      (perfect ? ` (+${IQ_PERFECT_BONUS} bonus za všetko správne)` : '') + (now >= IQ_MAX ? ' · Génius! 🎓' : '');
+    $('#end-earn').innerHTML = `<div class="earn">+${price(coins)}</div><small>na nákupy</small>`;
+    $('#lesson-progress').textContent = 'Hotovo';
+    $('#lesson-card').classList.add('hidden');
+    $('#lesson-end').classList.remove('hidden');
+    lesson.mood = good >= 5 ? 'happy' : 'sad';
+    lesson.moodT = -1.5;
+    updateLessonCat();
+    updateWallets();
+    if (good >= 5) audio.preview(cat.voice, 84);
+  }
+
+  // malá animovaná mačička, ktorá sa raduje alebo smúti
+  function lessonLoop() {
+    let last = performance.now();
+    const step = ts => {
+      if (!lesson || screen !== 'lesson') return;
+      const dt = Math.min(0.05, (ts - last) / 1000);
+      last = ts;
+      lesson.t += dt;
+      lesson.moodT += dt;
+      const cat = catById(lesson.catId);
+      const active = lesson.mood && lesson.moodT < 0.8;
+      paintCat($('#lesson-cat'), cat, 96, outfitOf(cat.id), 'full', {
+        t: lesson.t,
+        mouth: active && lesson.mood === 'happy' ? 0.45 + 0.3 * Math.sin(lesson.t * 18) : 0,
+        sad: active && lesson.mood === 'sad',
+        blink: (lesson.t % 3.4) < 0.12,
+        look: Math.sin(lesson.t * 0.9) * 0.5,
+        noBed: true,
+      });
+      lesson.raf = requestAnimationFrame(step);
+    };
+    lesson.raf = requestAnimationFrame(step);
+  }
+
+  $('#btn-lesson-again').addEventListener('click', () => { audio.init(); audio.blip(); startLesson(lessonCatId); });
+
   // ---------- Výsledok ----------
   game.onEnd = r => {
     const prev = store.best[current.id] || { score: 0, stars: 0 };
@@ -1152,7 +1445,7 @@
     const cats = chosenCats();
     const bonus = cats.reduce((s, c) => s + moodOf(hungerOf(c.id)).bonus, 0);
     const fatPen = cats.reduce((s, c) => s + weightOf(fatOf(c.id)).bonus, 0);
-    const earned = Math.max(0, Math.round(r.score * (1 + bonus + fatPen) * (store.relax ? 0.5 : 1)));
+    const earned = Math.max(0, Math.round(r.score * COIN_RATE * (1 + bonus + fatPen) * (store.relax ? 0.5 : 1)));
     store.coins += earned;
     // chudnutie: podľa toho, koľko sa mačka v pesničke nachodila
     const slim = [];
@@ -1254,5 +1547,5 @@
   window.addEventListener('pageshow', e => { if (e.persisted) checkForUpdate(); });
 
   // Prístup pre ladenie z konzoly prehliadača (napr. macaciZbor.store.coins)
-  window.macaciZbor = { game, audio, store, save, syncGame, limitState: () => ({ task, quiz, clk }) };
+  window.macaciZbor = { game, audio, store, save, syncGame, limitState: () => ({ task, quiz, clk, lesson }) };
 })();

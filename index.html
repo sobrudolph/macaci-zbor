@@ -33,7 +33,7 @@
         <p class="tagline">Rytmická hra pre dva palce</p>
       </div>
       <div class="menu-buttons">
-        <button class="btn primary" data-go="songs">▶ Hrať</button>
+        <button class="btn primary" data-go="games">▶ Hrať</button>
         <div class="btn-row">
           <button class="btn" data-go="cats">🐾 Mačky</button>
           <button class="btn" data-go="shop">🛒 Obchod</button>
@@ -43,10 +43,80 @@
       </div>
     </section>
 
+    <!-- Výber hry -->
+    <section id="screen-games" class="screen panel hidden">
+      <header class="bar">
+        <button class="icon-btn" data-go="menu" aria-label="Späť">←</button>
+        <h2>Hry</h2>
+        <span class="wallet"></span>
+      </header>
+      <div class="game-pick">
+        <button class="game-card" data-go="songs" style="--c1:#ff8fb8;--c2:#7d6bd6">
+          <span class="gc-icon">🎵</span>
+          <span class="gc-title">Mačací zbor</span>
+          <span class="gc-sub">Chytaj pochúťky do rytmu a mačky zaspievajú pesničku.</span>
+        </button>
+        <button class="game-card" data-go="school" style="--c1:#5cc16a;--c2:#2f80ed">
+          <span class="gc-icon">🧠</span>
+          <span class="gc-title">Mačacia škola</span>
+          <span class="gc-sub">Príklady a hodiny – vyber správnu odpoveď z troch. Mačičke stúpa IQ!</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Mačacia škola: výber mačičky -->
+    <section id="screen-school" class="screen panel hidden">
+      <header class="bar">
+        <button class="icon-btn" data-go="games" aria-label="Späť">←</button>
+        <h2>Mačacia škola</h2>
+        <span class="wallet"></span>
+      </header>
+      <p class="hint">S ktorou mačičkou sa chceš učiť? Za každú správnu odpoveď jej stúpne IQ (od 0 až do 150).</p>
+      <div id="school-grid" class="grid"></div>
+    </section>
+
+    <!-- Mačacia škola: hra -->
+    <section id="screen-lesson" class="screen panel hidden">
+      <header class="bar">
+        <button class="icon-btn" data-go="school" aria-label="Späť">←</button>
+        <h2>Mačacia škola</h2>
+        <span class="pill" id="lesson-progress"></span>
+      </header>
+      <div class="lesson">
+        <div class="lesson-cat">
+          <canvas id="lesson-cat"></canvas>
+          <div class="lesson-iq">
+            <b id="lesson-name"></b>
+            <span id="lesson-iq"></span>
+            <div class="iqbar"><i id="lesson-iqbar"></i></div>
+          </div>
+          <span class="iq-plus" id="iq-plus">+1 IQ</span>
+        </div>
+        <div class="lesson-card" id="lesson-card">
+          <div class="lesson-ask" id="lesson-ask"></div>
+          <canvas id="lesson-clock" class="hidden"></canvas>
+          <div class="lesson-q" id="lesson-q"></div>
+          <div class="options" id="lesson-options"></div>
+        </div>
+        <div class="lesson-card hidden" id="lesson-end">
+          <div class="limit-big" id="end-icon"></div>
+          <h2 id="end-title"></h2>
+          <div class="res-stars" id="end-stars"></div>
+          <p class="end-iq" id="end-iq"></p>
+          <div class="res-earn" id="end-earn"></div>
+          <button class="btn primary" id="btn-lesson-again">Hrať znova</button>
+          <div class="btn-row">
+            <button class="btn" data-go="school">Iná mačička</button>
+            <button class="btn" data-go="menu">Do menu</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- Výber pesničky -->
     <section id="screen-songs" class="screen panel hidden">
       <header class="bar">
-        <button class="icon-btn" data-go="menu" aria-label="Späť">←</button>
+        <button class="icon-btn" data-go="games" aria-label="Späť">←</button>
         <h2>Pesničky</h2>
         <span class="wallet"></span>
       </header>
@@ -130,7 +200,8 @@
           <li>Za body z pesničiek nakupuješ v <b>Obchode</b> jedlo, oblečenie, okuliare, obojky, vodítka a pelechy vo veľa farbách.</li>
           <li>Mačky po každej pesničke a časom <b>vyhladnú</b>. Nakŕm ich v Mačkách. Najedená mačka (nad 60 %) dá <b>+10 % bodov</b>, hladná (pod 25 %) o 15 % menej.</li>
           <li>Pozor na <b>prekŕmenie</b>: keď kŕmiš plnú mačku, rýchlo priberie. Prejedená mačka sa ťažko hýbe a tučná dá o 10 % menej bodov. Schudne len pohybom v pesničkách, postupne, za viac hier.</li>
-          <li><b>Limit</b>: aplikácia sa dá mať zapnutú 6 minút (čas vidíš v menu vľavo hore). Potom príde úloha: buď 5 príkladov na sčítanie a odčítanie do 20, alebo 3× nastaviť ručičkové hodiny. Keď je všetko správne, pribudne ďalších 6 minút.</li>
+          <li><b>Limit</b>: aplikácia sa dá mať zapnutú 6 minút (čas vidíš v menu vľavo hore). Potom príde úloha: buď 5 príkladov na sčítanie a odčítanie do 20, alebo 3× nastaviť ručičkové hodiny. Úlohy sa striedajú, ale častejšie prídu tie, v ktorých robíš chyby. Keď je všetko správne, pribudne ďalších 6 minút.</li>
+          <li><b>Mačacia škola</b> (druhá hra v ponuke Hrať): 10 otázok – príklady a hodiny, vždy 3 možnosti a len jedna je správna. Za každú správnu odpoveď stúpne vybranej mačičke <b>IQ</b> (od 0 do 150).</li>
           <li>Mačku môžeš <b>premenovať</b> ceruzkou ✏️ v jej detaile.</li>
           <li>Na počítači: <kbd>A</kbd> <kbd>D</kbd> ľavá mačka, <kbd>←</kbd> <kbd>→</kbd> pravá mačka. Myš ovláda mačku na strane, kde je kurzor. <kbd>Esc</kbd> = pauza.</li>
         </ul>

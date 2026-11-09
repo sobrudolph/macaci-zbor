@@ -675,3 +675,91 @@ kbd {
   #screen-menu { padding-top: 4vh; gap: 2.5vh; }
   .btn { padding: 11px 18px; font-size: 18px; }
 }
+
+/* ---------- Výber hry ---------- */
+.game-pick { display: flex; flex-direction: column; gap: 14px; overflow-y: auto; padding-bottom: 16px; }
+.game-card {
+  font: inherit;
+  color: #fff;
+  border: 0;
+  border-radius: 22px;
+  padding: 22px 20px;
+  text-align: left;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 16px;
+  align-items: center;
+  background: linear-gradient(135deg, var(--c1), var(--c2));
+  box-shadow: 0 5px 0 rgba(0, 0, 0, .22);
+  cursor: pointer;
+}
+.game-card:active { transform: translateY(3px); box-shadow: 0 2px 0 rgba(0, 0, 0, .22); }
+.gc-icon { grid-row: span 2; font-size: 52px; line-height: 1; }
+.gc-title { font-size: 26px; font-weight: 700; }
+.gc-sub { font-size: 14px; opacity: .92; }
+
+/* ---------- Mačacia škola ---------- */
+.iq-card .iq-txt { font-size: 12px; font-weight: 700; color: var(--gold); }
+.iqbar { width: 100%; height: 7px; border-radius: 99px; background: rgba(255, 255, 255, .22); overflow: hidden; }
+.iqbar i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #7cc6ff, #b49bff, #ffd34d); transition: width .5s; }
+.iq-card .iqbar { display: block; width: 70%; margin-top: 4px; }
+
+.lesson { display: flex; flex-direction: column; gap: 12px; flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 12px; }
+.lesson-cat { position: relative; display: flex; align-items: center; gap: 12px; flex: none; }
+#lesson-cat { flex: none; }
+.lesson-iq { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.lesson-iq b { font-size: 20px; }
+.lesson-iq span { font-size: 14px; color: var(--gold); font-weight: 700; }
+.iq-plus {
+  position: absolute;
+  left: 70px;
+  top: 0;
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--gold);
+  opacity: 0;
+  pointer-events: none;
+}
+.iq-plus.show { animation: iqup 1s ease-out; }
+@keyframes iqup { 0% { opacity: 0; transform: translateY(10px); } 20% { opacity: 1; } 100% { opacity: 0; transform: translateY(-30px); } }
+
+.lesson-card {
+  background: var(--card);
+  color: var(--ink);
+  border-radius: 24px;
+  padding: 18px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+  flex: none;
+  animation: rise .25s ease-out both;
+}
+.lesson-ask { font-size: 18px; font-weight: 600; color: var(--muted); }
+.lesson-q { font-size: 52px; font-weight: 700; line-height: 1.1; }
+.lesson-q:empty { display: none; }
+#lesson-clock { flex: none; }
+.options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; }
+.options button {
+  font: inherit;
+  font-size: 32px;
+  font-weight: 700;
+  padding: 16px 0;
+  border: 0;
+  border-radius: 18px;
+  background: #efe9f7;
+  color: var(--ink);
+  box-shadow: 0 5px 0 rgba(60, 20, 90, .18);
+  cursor: pointer;
+  transition: background .15s;
+}
+.options.time button { font-size: 26px; }
+.options button:active { transform: translateY(3px); box-shadow: 0 2px 0 rgba(60, 20, 90, .18); }
+.options button.ok { background: #5cc16a; color: #fff; }
+.options button.bad { background: #ff5f7a; color: #fff; }
+.options button:disabled { cursor: default; }
+.end-iq { margin: 0; font-weight: 700; color: var(--accent2); font-size: 18px; }
+#lesson-end .btn { width: 100%; }
+#lesson-end .btn-row { width: 100%; }
+.hrow b.iq { color: var(--gold); }
