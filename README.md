@@ -31,7 +31,7 @@ Každú mačku ovládaš jedným palcom. Keď pochúťku chytíš, mačka zamňa
 - Chyť pochúťku do pusy presne vo chvíli, keď dopadne na čiaru.
 - **Svietiaca stopa** znamená držanú notu: drž mačku pod stopou až do konca.
 - Za 10 chytených pochúťok za sebou sa zvýši násobič bodov (najviac ×4).
-- Po 3 chybách hra končí. **Relax režim** v menu vypne prehru.
+- Po 3 chybách hra končí.
 
 ## Hraj online
 

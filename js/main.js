@@ -13,7 +13,8 @@
   function save() {
     try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) { /* ignore */ }
   }
-  const store = Object.assign({ catL: 'mica', catR: 'rysavec', relax: false, best: {} }, load());
+  const store = Object.assign({ catL: 'mica', catR: 'rysavec', best: {} }, load());
+  delete store.relax; // Relax režim bol zrušený
   for (const k of ['best', 'owned', 'outfits', 'hunger', 'names', 'fat', 'iq', 'skills']) {
     if (!store[k] || typeof store[k] !== 'object') store[k] = {};
   }
@@ -223,7 +224,7 @@
     current = song;
     syncGame();
     show(null);
-    game.start(song, chosenCats(), store.relax);
+    game.start(song, chosenCats(), false);
   }
 
   // ---------- Zoznam mačiek ----------
@@ -895,12 +896,32 @@
   }
 
   // ===== Ručičkové hodiny =====
-  // Čas na ciferníku = minúty od 12:00 (0..719), vždy po 5 minútach.
+  // Ručičky sa nastavujú každá zvlášť – veľká (minúty) neťahá malú (hodiny).
+  //  - veľká ručička: po 5 minútach (mn = 0..55),
+  //  - malá ručička: hp = 0..143, jeden krok = 1/12 hodiny (2,5°).
+  // Správne je: veľká na minútach a malá PRESNE NA ČÍSLE pri celej hodine,
+  // inak MEDZI hodinou a ďalšou hodinou (napr. 11:55 = medzi 11 a 12, nie na 12).
   const clockCv = $('#clock-cv');
   const TAU = Math.PI * 2;
+  const HP_STEPS = 144;
   const fmtHM = (h, m) => `${h}:${String(m).padStart(2, '0')}`;
   const onDial = (h, m) => (h % 12) * 60 + m;
-  const dialHM = v => [Math.floor(v / 60) || 12, v % 60];
+  /** Ručičky na kreslenie: malá ručička je zreteľne medzi číslami (posun 0,8 namiesto celej hodiny). */
+  const handsFor = (h, m) => ({ hp: ((h % 12) + (m / 60) * 0.8) * 12, mn: m });
+
+  function clockOk(hp, mn, h, m) {
+    if (mn !== m) return false;
+    const rel = (((hp - (h % 12) * 12) % HP_STEPS) + HP_STEPS) % HP_STEPS;
+    if (m === 0) return rel <= 2 || rel >= HP_STEPS - 2; // na čísle (malá tolerancia pre prst)
+    return rel >= 1 && rel <= 11;                        // medzi hodinou a ďalšou hodinou
+  }
+  /** Slovný popis, kde je malá ručička: „na 7“ alebo „medzi 7 a 8“. */
+  function hourHandText(hp) {
+    const k = hp / 12, n = Math.round(k);
+    const num = x => ((x % 12) + 12) % 12 || 12;
+    if (Math.abs(k - n) * 12 <= 2) return `na ${num(n)}`;
+    return `medzi ${num(Math.floor(k))} a ${num(Math.floor(k) + 1)}`;
+  }
 
   /** 3 rôzne časy, hodiny 1–23 (aj popoludní, napr. 20:30), minúty po 5. */
   function makeClockProbs() {
@@ -915,7 +936,7 @@
   }
 
   function startClock() {
-    clk = { probs: makeClockProbs(), i: 0, cur: 0, drag: null, busy: false, ghost: null };
+    clk = { probs: makeClockProbs(), i: 0, hp: 0, mn: 0, drag: null, busy: false, ghost: null };
     limitCard('clock');
     nextClock();
   }
@@ -923,14 +944,14 @@
   function nextClock() {
     const p = clk.probs[clk.i];
     // ručičky začínajú na náhodnom čase, nie na správnom
-    do { clk.cur = rand(144) * 5; } while (clk.cur === onDial(p.h, p.m));
+    do { clk.hp = rand(HP_STEPS); clk.mn = rand(12) * 5; } while (clockOk(clk.hp, clk.mn, p.h, p.m));
     clk.ghost = null;
     renderClock();
   }
 
   function renderClock(state) {
     const p = clk.probs[clk.i];
-    $('#clock-dots').innerHTML = dots(clk.probs, clk.i, q => q.set === onDial(q.h, q.m));
+    $('#clock-dots').innerHTML = dots(clk.probs, clk.i, q => q.ok);
     $('#clock-label').textContent = `Hodiny ${clk.i + 1} z ${CLOCK_LEN}`;
     const t = $('#clock-target');
     t.textContent = fmtHM(p.h, p.m);
@@ -944,11 +965,11 @@
 
   function drawClock() {
     const size = Math.round(Math.max(200, Math.min(290, window.innerWidth - 90, window.innerHeight * 0.42)));
-    clockGeo = paintCatClock(clockCv, size, clk.cur, clk.ghost);
+    clockGeo = paintCatClock(clockCv, size, { hp: clk.hp, mn: clk.mn }, clk.ghost);
   }
 
-  /** Nakreslí mačičkovské hodiny s časom cur (minúty od 12:00), ghost = správny čas ako zelený tieň. */
-  function paintCatClock(cv, size, cur, ghost) {
+  /** Nakreslí mačičkovské hodiny s ručičkami hands = { hp, mn }, ghost = správne ručičky ako zelený tieň. */
+  function paintCatClock(cv, size, hands, ghost) {
     const g = prepCanvas(cv, size, size);
     const R = size * 0.37, cx = size / 2, cy = size * 0.53;
     g.lineJoin = 'round'; g.lineCap = 'round';
@@ -1031,7 +1052,7 @@
 
     // správne ručičky (po chybe) ako priesvitný zelený tieň
     if (ghost != null) drawHands(g, cx, cy, R, ghost, 'rgba(46,158,69,0.55)', 'rgba(46,158,69,0.55)');
-    drawHands(g, cx, cy, R, cur, '#ff5f9e', '#7d6bd6');
+    drawHands(g, cx, cy, R, hands, '#ff5f9e', '#7d6bd6');
 
     // os ručičiek = ružový mačací nosík
     const nr = R * 0.1;
@@ -1046,8 +1067,8 @@
     return { cx, cy, R };
   }
 
-  function drawHands(g, cx, cy, R, v, hourCol, minCol) {
-    const ha = (v / 720) * TAU, ma = ((v % 60) / 60) * TAU;
+  function drawHands(g, cx, cy, R, hands, hourCol, minCol) {
+    const ha = (hands.hp / HP_STEPS) * TAU, ma = (hands.mn / 60) * TAU;
     // ručička so šípkou na konci
     const hand = (a, len, w, col) => {
       const sx = Math.sin(a), sy = -Math.cos(a);   // smer ručičky
@@ -1067,11 +1088,12 @@
     hand(ha, R * 0.5, R * 0.085, hourCol); // hodinová: krátka, ružová
   }
 
-  function setClock(v) {
-    v = ((v % 720) + 720) % 720;
-    if (v === clk.cur) return;
-    clk.cur = v;
-    audio.blip();
+  function setHands(hp, mn) {
+    hp = ((hp % HP_STEPS) + HP_STEPS) % HP_STEPS;
+    if (hp === clk.hp && mn === clk.mn) return;
+    if (mn !== clk.mn || Math.abs(hp - clk.hp) >= 2) audio.blip();
+    clk.hp = hp;
+    clk.mn = mn;
     drawClock();
   }
 
@@ -1086,24 +1108,15 @@
   const angDist = (a, b) => { const d = Math.abs(a - b) % TAU; return Math.min(d, TAU - d); };
 
   function dragClock(p) {
-    const m0 = clk.cur % 60, h0 = Math.floor(clk.cur / 60);
-    if (clk.drag === 'm') {
-      const m = (Math.round((p.a / TAU) * 12) % 12) * 5;
-      let h = h0;
-      if (m - m0 < -30) h++;      // prešla cez 12 dopredu → ďalšia hodina
-      else if (m - m0 > 30) h--;  // cez 12 dozadu
-      setClock(h * 60 + m);
-    } else {
-      const h = Math.round((p.a / TAU) * 12 - m0 / 60);
-      setClock(h * 60 + m0);
-    }
+    if (clk.drag === 'm') setHands(clk.hp, (Math.round((p.a / TAU) * 12) % 12) * 5); // len veľká ručička
+    else setHands(Math.round((p.a / TAU) * HP_STEPS), clk.mn);                        // len malá ručička
   }
 
   clockCv.addEventListener('pointerdown', e => {
     if (!clk || clk.busy) return;
     audio.init();
     const p = clockPtr(e);
-    const dh = angDist(p.a, (clk.cur / 720) * TAU), dm = angDist(p.a, ((clk.cur % 60) / 60) * TAU);
+    const dh = angDist(p.a, (clk.hp / HP_STEPS) * TAU), dm = angDist(p.a, (clk.mn / 60) * TAU);
     clk.drag = Math.abs(dh - dm) < 0.35 ? (p.d < 0.62 ? 'h' : 'm') : dh < dm ? 'h' : 'm';
     try { clockCv.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
     dragClock(p);
@@ -1118,22 +1131,26 @@
     if (!clk || clk.busy) return;
     audio.init();
     const p = clk.probs[clk.i];
-    p.set = clk.cur;
+    p.set = { hp: clk.hp, mn: clk.mn };
     p.done = true;
-    const ok = clk.cur === onDial(p.h, p.m);
+    const ok = clockOk(clk.hp, clk.mn, p.h, p.m);
+    p.ok = ok;
     recordSkill('clock', ok);
     feedbackSound(ok);
     clk.busy = true;
-    if (!ok) clk.ghost = onDial(p.h, p.m); // ukáž, kde mali byť ručičky
+    if (!ok) clk.ghost = handsFor(p.h, p.m); // ukáž, kde mali byť ručičky
     renderClock(ok ? 'ok' : 'bad');
     setTimeout(() => {
       clk.busy = false;
       clk.i++;
       if (clk.i < CLOCK_LEN) nextClock();
       else finishTask(clk.probs.map(q => {
-        const good = q.set === onDial(q.h, q.m);
-        const [sh, sm] = dialHM(q.set);
-        return { ok: good, text: good ? `🕐 ${fmtHM(q.h, q.m)} ✓` : `🕐 ${fmtHM(q.h, q.m)} ✗  (na hodinách bolo ${fmtHM(sh, sm)})` };
+        if (q.ok) return { ok: true, text: `🕐 ${fmtHM(q.h, q.m)} ✓` };
+        const why = [];
+        if (q.set.mn !== q.m) why.push(`veľká ručička bola na ${q.set.mn / 5 || 12}, má byť na ${q.m / 5 || 12}`);
+        const want = q.m === 0 ? `na ${q.h % 12 || 12}` : `medzi ${q.h % 12 || 12} a ${(q.h % 12) + 1}`;
+        if (!clockOk(q.set.hp, q.m, q.h, q.m)) why.push(`malá ručička bola ${hourHandText(q.set.hp)}, má byť ${want}`);
+        return { ok: false, text: `🕐 ${fmtHM(q.h, q.m)} ✗  (${why.join('; ')})` };
       }));
     }, ok ? 700 : 1600);
   });
@@ -1313,7 +1330,7 @@
       $('#lesson-q').textContent = '';
       cv.classList.remove('hidden');
       const size = Math.round(Math.max(180, Math.min(250, window.innerWidth - 110, window.innerHeight * 0.32)));
-      paintCatClock(cv, size, onDial(q.h, q.m), null);
+      paintCatClock(cv, size, handsFor(q.h, q.m), null);
     }
     const opts = $('#lesson-options');
     opts.innerHTML = '';
@@ -1441,11 +1458,11 @@
     const isNew = r.score > prev.score;
     store.best[current.id] = { score: Math.max(prev.score, r.score), stars: Math.max(prev.stars, r.stars) };
 
-    // body na nákupy: bonus za najedené mačky, menej za hladné, polovica v relax režime
+    // body na nákupy: bonus za najedené mačky, menej za hladné a tučné
     const cats = chosenCats();
     const bonus = cats.reduce((s, c) => s + moodOf(hungerOf(c.id)).bonus, 0);
     const fatPen = cats.reduce((s, c) => s + weightOf(fatOf(c.id)).bonus, 0);
-    const earned = Math.max(0, Math.round(r.score * COIN_RATE * (1 + bonus + fatPen) * (store.relax ? 0.5 : 1)));
+    const earned = Math.max(0, Math.round(r.score * COIN_RATE * (1 + bonus + fatPen)));
     store.coins += earned;
     // chudnutie: podľa toho, koľko sa mačka v pesničke nachodila
     const slim = [];
@@ -1481,7 +1498,6 @@
     if (bonus > 0.001) notes.push(`najedené mačky +${Math.round(bonus * 100)} %`);
     if (bonus < -0.001) notes.push(`hladné mačky −${Math.round(-bonus * 100)} %`);
     if (fatPen < -0.001) notes.push(`tučné mačky −${Math.round(-fatPen * 100)} %`);
-    if (store.relax) notes.push('relax režim ½');
     $('#res-earn').innerHTML = `<div class="earn">+${price(earned)}</div><small>na nákupy${notes.length ? ' · ' + notes.join(' · ') : ''}</small>`;
     for (const s of slim) {
       const d = document.createElement('small');
@@ -1498,11 +1514,6 @@
   $('#btn-again').addEventListener('click', () => { game.quit(); startSong(current); });
   $('#btn-songs').addEventListener('click', () => { audio.blip(); game.quit(); go('songs'); });
   $('#btn-menu').addEventListener('click', () => { audio.blip(); game.quit(); go('menu'); });
-
-  // ---------- Nastavenia ----------
-  const relax = $('#opt-relax');
-  relax.checked = !!store.relax;
-  relax.addEventListener('change', () => { store.relax = relax.checked; save(); });
 
   // Po načítaní fontu prekresliť (kvôli rozmerom)
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => game.resize());
