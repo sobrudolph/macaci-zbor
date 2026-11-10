@@ -191,6 +191,8 @@
     show(name);
     // čas minutý: mimo učenia hneď naskočí limit
     if (store.timeLeft <= 0 && !OPEN_WHEN_OUT.includes(name)) openLimit();
+    if (name === 'menu') renderStats();
+    showNextReward();
   }
 
   document.addEventListener('click', e => {
@@ -811,16 +813,17 @@
   $('#btn-restart').addEventListener('click', () => { game.quit(); startSong(current); });
   $('#btn-quit').addEventListener('click', () => { game.quit(); go('menu'); });
 
-  // ---------- Limit: 6 minút zapnutej aplikácie, potom úlohy ----------
-  // Úlohy sú buď 5 príkladov (sčítanie/odčítanie do 20), alebo 3× nastaviť ručičkové hodiny.
-  // Typ sa vyberie náhodne pri každom limite a nemieša sa. Pri chybe príde nové kolo rovnakého typu.
+  // ---------- Limit: 6 minút zapnutej aplikácie, potom úloha ----------
+  // Úloha = 4 príklady (sčítanie/odčítanie do 20) a potom 1× nastaviť ručičkové hodiny.
+  // Všetkých 5 musí byť správne, inak prídu nové úlohy.
   const LIMIT_MIN = 6;
-  const QUIZ_LEN = 5;
-  const CLOCK_LEN = 3;
+  const QUIZ_LEN = 4;
+  const CLOCK_LEN = 1;
+  const TASK_TOTAL = QUIZ_LEN + CLOCK_LEN;
   if (typeof store.timeLeft !== 'number' || !isFinite(store.timeLeft)) store.timeLeft = LIMIT_MIN * 60;
   store.timeLeft = Math.min(store.timeLeft, LIMIT_MIN * 60);
   let limitOpen = false;
-  let task = null;      // 'math' | 'clock'
+  let task = null;      // 'combo' = príklady + hodiny
   let quiz = null;      // stav príkladov
   let clk = null;       // stav hodín
   const rand = n => Math.floor(Math.random() * n);
@@ -884,33 +887,33 @@
     limitOpen = true;
     if (game.mode === 'play') doPause(); // pesnička počká, po splnení úloh pokračuje
     if (window.speechSynthesis) window.speechSynthesis.cancel(); // diktát stíchne
-    // typ úlohy sa uloží, aby sa nedal "prehodiť" zatvorením aplikácie
-    if (!TASK_TYPES.includes(store.limitTask)) {
-      store.limitTask = pickTask();
-      skillOf(store.limitTask).last = Date.now();
-    }
-    task = store.limitTask;
+    task = 'combo';
+    delete store.limitTask;
     save();
     $('#limit-min').textContent = LIMIT_MIN;
     $('#limit-text').textContent = `Aplikácia bola zapnutá ${LIMIT_MIN} minút. Splň úlohu a dostaneš ďalších ${LIMIT_MIN} minút.`;
-    $('#limit-task').textContent = task === 'clock'
-      ? `Úloha: 🕐 ${CLOCK_LEN}× správne nastav ručičkové hodiny`
-      : `Úloha: ➕ ${QUIZ_LEN} príkladov na sčítanie a odčítanie`;
+    $('#limit-task').textContent = `Úloha: ➕ ${QUIZ_LEN} príklady na sčítanie a odčítanie a 🕐 ${CLOCK_LEN}× hodiny`;
     limitCard('wall');
     $('#limit').classList.remove('hidden');
   }
 
   function startTask() {
-    if (task === 'clock') startClock(); else startQuiz();
+    startQuiz(); // najprv príklady, po nich hodiny
+  }
+  // spoločné bodky pre všetkých 5 úloh (4 príklady + hodiny)
+  const comboOk = q => (q.ans != null ? q.ans === q.res : !!q.ok);
+  function comboDots(cur) {
+    const items = [...(quiz ? quiz.probs : []), ...(clk ? clk.probs : Array.from({ length: CLOCK_LEN }, () => ({ done: false })))];
+    return dots(items, cur, comboOk);
   }
 
   const dots = (items, cur, isOk) => items.map((q, i) =>
     `<i class="${q.done ? (isOk(q) ? 'ok' : 'bad') : i === cur ? 'cur' : ''}"></i>`).join('');
 
   // ===== Príklady =====
-  /** 5 príkladov: sčítanie a odčítanie do 20 (výsledok 1–20), aspoň 2 z každého druhu. */
+  /** 4 príklady: 2× sčítanie a 2× odčítanie do 20 (výsledok 1–20). */
   function makeProblems() {
-    const ops = ['+', '+', '−', '−', Math.random() < 0.5 ? '+' : '−'].sort(() => Math.random() - 0.5);
+    const ops = ['+', '+', '−', '−'].sort(() => Math.random() - 0.5);
     const seen = new Set();
     return ops.map(op => {
       let a, b, key;
@@ -925,15 +928,16 @@
   }
 
   function startQuiz() {
-    quiz = { probs: makeProblems(), i: 0, input: '', busy: false };
+    quiz = { probs: makeProblems(), i: 0, input: '', busy: false, results: null };
+    clk = null;
     limitCard('quiz');
     renderQuiz();
   }
 
   function renderQuiz(state) {
     const p = quiz.probs[quiz.i];
-    $('#quiz-dots').innerHTML = dots(quiz.probs, quiz.i, q => q.ans === q.res);
-    $('#quiz-label').textContent = `Príklad ${quiz.i + 1} z ${QUIZ_LEN}`;
+    $('#quiz-dots').innerHTML = comboDots(quiz.i);
+    $('#quiz-label').textContent = `Úloha ${quiz.i + 1} z ${TASK_TOTAL} · príklad`;
     const q = $('#quiz-q');
     q.className = 'quiz-q' + (state ? ' ' + state : '');
     q.innerHTML = `${p.a} ${p.op} ${p.b} = <span class="ans">${quiz.input || '?'}</span>`;
@@ -984,10 +988,13 @@
       quiz.i++;
       quiz.input = '';
       if (quiz.i < QUIZ_LEN) renderQuiz();
-      else finishTask(quiz.probs.map(p => ({
-        ok: p.ans === p.res,
-        text: p.ans === p.res ? `${p.a} ${p.op} ${p.b} = ${p.res} ✓` : `${p.a} ${p.op} ${p.b} = ${p.ans} ✗  (správne je ${p.res})`,
-      })));
+      else {
+        quiz.results = quiz.probs.map(p => ({
+          ok: p.ans === p.res,
+          text: p.ans === p.res ? `${p.a} ${p.op} ${p.b} = ${p.res} ✓` : `${p.a} ${p.op} ${p.b} = ${p.ans} ✗  (správne je ${p.res})`,
+        }));
+        startClock(); // po príkladoch prídu hodiny
+      }
     }, 700);
   }
 
@@ -1023,7 +1030,7 @@
     return `medzi ${num(Math.floor(k))} a ${num(Math.floor(k) + 1)}`;
   }
 
-  /** 3 rôzne časy, hodiny 1–23 (aj popoludní, napr. 20:30), minúty po 5. */
+  /** Časy na hodiny: hodiny 1–23 (aj popoludní, napr. 20:30), minúty po 5. */
   function makeClockProbs() {
     const seen = new Set(), out = [];
     while (out.length < CLOCK_LEN) {
@@ -1051,8 +1058,8 @@
 
   function renderClock(state) {
     const p = clk.probs[clk.i];
-    $('#clock-dots').innerHTML = dots(clk.probs, clk.i, q => q.ok);
-    $('#clock-label').textContent = `Hodiny ${clk.i + 1} z ${CLOCK_LEN}`;
+    $('#clock-dots').innerHTML = comboDots(QUIZ_LEN + clk.i);
+    $('#clock-label').textContent = `Úloha ${QUIZ_LEN + clk.i + 1} z ${TASK_TOTAL} · hodiny`;
     const t = $('#clock-target');
     t.textContent = fmtHM(p.h, p.m);
     t.className = 'clock-target' + (state ? ' ' + state : '');
@@ -1244,14 +1251,14 @@
       clk.busy = false;
       clk.i++;
       if (clk.i < CLOCK_LEN) nextClock();
-      else finishTask(clk.probs.map(q => {
+      else finishTask([...((quiz && quiz.results) || []), ...clk.probs.map(q => {
         if (q.ok) return { ok: true, text: `🕐 ${fmtHM(q.h, q.m)} ✓` };
         const why = [];
         if (q.set.mn !== q.m) why.push(`veľká ručička bola na ${q.set.mn / 5 || 12}, má byť na ${q.m / 5 || 12}`);
         const want = q.m === 0 ? `na ${q.h % 12 || 12}` : `medzi ${q.h % 12 || 12} a ${(q.h % 12) + 1}`;
         if (!clockOk(q.set.hp, q.m, q.h, q.m)) why.push(`malá ručička bola ${hourHandText(q.set.hp)}, má byť ${want}`);
         return { ok: false, text: `🕐 ${fmtHM(q.h, q.m)} ✗  (${why.join('; ')})` };
-      }));
+      })]);
     }, ok ? 700 : 1600);
   });
 
@@ -1264,9 +1271,7 @@
     $('#done-title').textContent = all ? `Výborne! ${good} z ${total}` : `${good} z ${total} správne`;
     $('#done-text').textContent = all
       ? `Máš ďalších ${LIMIT_MIN} minút.`
-      : task === 'clock'
-        ? `Treba mať všetky ${CLOCK_LEN} hodiny správne. Skús ďalšie ${CLOCK_LEN}.`
-        : `Treba mať všetkých ${QUIZ_LEN} správne. Skús ďalších ${QUIZ_LEN} príkladov.`;
+      : `Treba mať všetkých ${TASK_TOTAL} úloh správne. Skús nové úlohy.`;
     const rev = $('#done-review');
     rev.innerHTML = '';
     if (!all) {
@@ -1277,12 +1282,11 @@
         rev.append(li);
       }
     }
-    $('#btn-done').textContent = all ? '▶ Hrať ďalej' : task === 'clock' ? `Ďalšie ${CLOCK_LEN} hodiny` : `Ďalších ${QUIZ_LEN} príkladov`;
+    $('#btn-done').textContent = all ? '▶ Hrať ďalej' : 'Nové úlohy';
     $('#btn-done').dataset.ok = all ? '1' : '';
     limitCard('done');
     if (all) {
       store.timeLeft = LIMIT_MIN * 60;
-      delete store.limitTask; // nabudúce sa typ úlohy vyberie znova
       save();
       updateTimePill();
     }
@@ -1307,6 +1311,7 @@
     clk = null;
     limitOpen = false;
     $('#limit').classList.add('hidden');
+    showNextReward();
   });
   window.addEventListener('resize', () => { if (clk && !$('#limit-clock').classList.contains('hidden')) drawClock(); });
 
@@ -1320,7 +1325,8 @@
   const LESSON_LEN = 10;
   const LESSON_COINS = 120;   // body na nákupy za každú správnu odpoveď
   const LESSON_PERFECT_COINS = 300; // navyše za 10 z 10
-  const IQ_PERFECT_BONUS = 2; // navyše za 10 z 10
+  // IQ za lekciu (dávame ho až na konci): 10/10 → +3, 8–9 → +2, 5–7 → +1, menej → 0
+  const lessonIq = good => (good >= 10 ? 3 : good >= 8 ? 2 : good >= 5 ? 1 : 0);
 
   const iqOf = id => clampN(Math.round(store.iq[id] || 0), 0, IQ_MAX);
   function addIq(id, n) { store.iq[id] = clampN((store.iq[id] || 0) + n, 0, IQ_MAX); }
@@ -1342,8 +1348,8 @@
     $('#school-hint').textContent = dictMode
       ? 'S ktorou mačičkou chceš písať diktát? Za každú vetu bez chyby jej stúpne IQ (od 0 až do 150).'
       : pvMode
-        ? 'S ktorou mačičkou sa chceš učiť prvouku? Za každé správne doplnené slovo jej stúpne IQ (od 0 až do 150).'
-        : 'S ktorou mačičkou sa chceš učiť? Za každú správnu odpoveď jej stúpne IQ (od 0 až do 150).';
+        ? 'S ktorou mačičkou sa chceš učiť prvouku? Za dobre doplnenú úlohu jej stúpne IQ (od 0 až do 150).'
+        : 'S ktorou mačičkou sa chceš učiť? Za dobre zvládnutú lekciu jej stúpne IQ (od 0 až do 150).';
     const grid = $('#school-grid');
     grid.innerHTML = '';
     for (const cat of ownedCats()) {
@@ -1492,9 +1498,6 @@
     const cat = catById(lesson.catId);
     if (ok) {
       lesson.good++;
-      const before = iqOf(cat.id);
-      addIq(cat.id, 1);
-      if (iqOf(cat.id) > before) popIq('+1 IQ');
       audio.preview(cat.voice, 79);
       lesson.mood = 'happy';
     } else {
@@ -1518,7 +1521,10 @@
     const good = lesson.good;
     lesson.done = true;
     const perfect = good === LESSON_LEN;
-    if (perfect) addIq(cat.id, IQ_PERFECT_BONUS);
+    const reward = lessonIq(good);
+    const before = iqOf(cat.id);
+    addIq(cat.id, reward);
+    if (iqOf(cat.id) > before) popIq(`+${iqOf(cat.id) - before} IQ`);
     const coins = good * LESSON_COINS + (perfect ? LESSON_PERFECT_COINS : 0);
     store.coins += coins;
     save();
@@ -1534,8 +1540,10 @@
       stars.append(s);
     }
     const now = iqOf(cat.id);
-    $('#end-iq').textContent = `${cat.name}: IQ ${lesson.startIq} → ${now}` +
-      (perfect ? ` (+${IQ_PERFECT_BONUS} bonus za všetko správne)` : '') + (now >= IQ_MAX ? ' · Génius! 🎓' : '');
+    $('#end-iq').textContent = reward
+      ? `${cat.name}: IQ ${lesson.startIq} → ${now}` + (now >= IQ_MAX ? ' · Génius! 🎓' : '')
+      : `${cat.name} tentoraz IQ nedostane – treba aspoň 5 správnych.`;
+    if (reward >= 1) learnDone(); // úspešné učenie sa počíta do odmien
     $('#end-earn').innerHTML = `<div class="earn">+${price(coins)}</div><small>na nákupy</small>`;
     $('#lesson-progress').textContent = 'Hotovo';
     $('#lesson-card').classList.add('hidden');
@@ -1574,7 +1582,7 @@
   $('#btn-lesson-again').addEventListener('click', () => { audio.init(); audio.blip(); startLesson(lessonCatId); });
 
   // ---------- Diktát: jedna hra = jedna veta z 5 slov, na konci sa opraví ----------
-  const DICT_IQ = 3;           // IQ za vetu bez chyby
+  const DICT_IQ = 2;           // IQ za vetu bez chyby
   const DICT_MISTAKE_IQ = 1;   // za každú chybu sa odráta 1 IQ (najmenej na 0)
   const DICT_COINS = 500;      // body na nákupy za vetu bez chyby
   const DICT_RATE = 0.62;      // pomalé diktovanie
@@ -1858,6 +1866,7 @@
       addIq(cat.id, DICT_IQ);
       const gained = iqOf(cat.id) - before;
       if (gained > 0) popDict(`+${gained} IQ`);
+      learnDone(); // úspešné učenie sa počíta do odmien
       verdict.className = 'dict-verdict ok';
       verdict.textContent = `Bez chyby! 🎉${gained > 0 ? ` ${cat.name} má +${gained} IQ.` : ''}`;
       audio.preview(cat.voice, 79);
@@ -1952,7 +1961,8 @@
   }
 
   // ---------- Prvouka: doplňovačky (presúvanie slov do medzier) ----------
-  const PV_IQ = 1;        // IQ za každé správne doplnené slovo
+  // IQ za úlohu: všetko správne → +2, aspoň polovica → +1, menej → 0
+  const pvIq = (good, total) => (good === total ? 2 : good * 2 >= total ? 1 : 0);
   const PV_COINS = 120;   // body na nákupy za každé správne slovo
   const PV_ALL_COINS = 200; // navyše, keď je všetko správne
   const VEHICLE_ICONS = { vlak: '🚆', autobus: '🚌', bicykel: '🚲', auto: '🚗', 'loď': '🛳️', lietadlo: '✈️' };
@@ -2258,8 +2268,10 @@
     const total = pv.slots.length;
     const cat = catById(pv.catId);
     const before = iqOf(cat.id);
-    addIq(cat.id, good * PV_IQ);
+    const reward = pvIq(good, total);
+    addIq(cat.id, reward);
     const gained = iqOf(cat.id) - before;
+    if (reward >= 1) learnDone(); // úspešné učenie sa počíta do odmien
     const coins = good * PV_COINS + (good === total ? PV_ALL_COINS : 0);
     store.coins += coins;
     save();
@@ -2282,7 +2294,7 @@
     if (gained > 0) pvPop(`+${gained} IQ`);
     $('#pv-iqline').textContent = gained > 0
       ? `${cat.name}: IQ ${pv.startIq} → ${iqOf(cat.id)}${iqOf(cat.id) >= IQ_MAX ? ' · Génius! 🎓' : ''}`
-      : good ? `${cat.name} už má plné IQ 🎓` : `${cat.name} tentoraz IQ nedostane. Skús ďalšiu úlohu!`;
+      : reward ? `${cat.name} už má plné IQ 🎓` : `${cat.name} tentoraz IQ nedostane – treba aspoň polovicu správne.`;
     $('#pv-earn').innerHTML = coins ? `<div class="earn">+${price(coins)}</div><small>na nákupy</small>` : '';
     $('#pv-progress').textContent = `${good} / ${total}`;
     $('#pv-result').classList.remove('hidden');
@@ -2315,6 +2327,177 @@
     };
     pv.raf = requestAnimationFrame(step);
   }
+
+  // ---------- Odmeny za učenie, denný bonus a denné učenie ----------
+  // Úspešné učenie = dokončená lekcia/veta/úloha, za ktorú si mačička zaslúžila aspoň 1 IQ.
+  //  - každých 30 → náhodná vec z obchodu (nie jedlo ani mačička), najviac 1× za deň
+  //  - každých 100 → mačička zadarmo podľa výberu, najviac 1× za deň
+  //  - každý deň aspoň 1 úspešné učenie → Denné učenie; 7 dní za sebou → +2 500
+  //  - prvé otvorenie dňa → denný bonus 500
+  const LEARN_ITEM_EVERY = 30;
+  const LEARN_CAT_EVERY = 100;
+  const DAILY_BONUS = 500;
+  const STREAK_DAYS = 7, STREAK_BONUS = 2500;
+  const dayKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const yesterdayKey = () => { const d = new Date(); d.setDate(d.getDate() - 1); return dayKey(d); };
+  if (!store.learn || typeof store.learn !== 'object') store.learn = { item: 0, cat: 0, itemDay: '', catDay: '', total: 0 };
+  if (!store.streak || typeof store.streak !== 'object') store.streak = { n: 0, day: '' };
+  const streakNow = () => (store.streak.day === dayKey() || store.streak.day === yesterdayKey() ? store.streak.n : 0);
+
+  function renderStats() {
+    const L = store.learn;
+    const set = (id, v, max) => {
+      $('#st-' + id).textContent = `${v}/${max}`;
+      $('#st-' + id + '-bar').style.width = Math.min(100, (v / max) * 100) + '%';
+    };
+    set('item', L.item, LEARN_ITEM_EVERY);
+    set('cat', L.cat, LEARN_CAT_EVERY);
+    set('streak', streakNow(), STREAK_DAYS);
+  }
+
+  function learnDone() {
+    const L = store.learn;
+    L.total = (L.total || 0) + 1;
+    L.item = Math.min(LEARN_ITEM_EVERY, L.item + 1);
+    L.cat = Math.min(LEARN_CAT_EVERY, L.cat + 1);
+    const today = dayKey(), st = store.streak;
+    if (st.day !== today) {
+      st.n = st.day === yesterdayKey() ? st.n + 1 : 1;
+      st.day = today;
+      if (st.n >= STREAK_DAYS) {
+        st.n = 0;
+        store.coins += STREAK_BONUS;
+        queueReward({ kind: 'coins', icon: '📅', title: 'Denné učenie', text: 'Celý týždeň učenia! 🎉', amount: STREAK_BONUS });
+      }
+    }
+    save();
+    renderStats();
+    checkRewards();
+  }
+
+  function checkRewards() {
+    const L = store.learn, today = dayKey();
+    if (L.item >= LEARN_ITEM_EVERY && L.itemDay !== today) {
+      L.item -= LEARN_ITEM_EVERY;
+      L.itemDay = today;
+      grantItem();
+    }
+    if (L.cat >= LEARN_CAT_EVERY && L.catDay !== today && !rewardQueue.some(r => r.kind === 'cat')) {
+      if (CATS.some(c => !ownsCat(c.id))) queueReward({ kind: 'cat' });
+      else {
+        L.cat -= LEARN_CAT_EVERY;
+        L.catDay = today;
+        store.coins += 5000;
+        queueReward({ kind: 'coins', icon: '🐱', title: 'Mačička zadarmo', text: 'Máš už všetky mačičky, dostávaš body.', amount: 5000 });
+      }
+    }
+    save();
+    renderStats();
+    showNextReward();
+  }
+
+  /** Náhodná vec z obchodu (oblečenie, okuliare, obojky…), ktorú ešte nemá. */
+  function grantItem() {
+    const free = [];
+    for (const it of ITEMS) for (const c of it.colors) { const k = variantKey(it.id, c); if (!store.owned[k]) free.push({ it, c, k }); }
+    if (!free.length) {
+      store.coins += 3000;
+      queueReward({ kind: 'coins', icon: '🎁', title: 'Odmena z obchodu', text: 'Máš už všetky veci z obchodu, dostávaš body.', amount: 3000 });
+      return;
+    }
+    const pick = free[rand(free.length)];
+    store.owned[pick.k] = 1;
+    queueReward({ kind: 'item', ...pick });
+  }
+
+  function checkDaily() {
+    if (store.bonusDay !== dayKey() && !rewardQueue.some(r => r.kind === 'daily')) queueReward({ kind: 'daily' });
+  }
+
+  // ----- okná s odmenami (postupne jedno za druhým) -----
+  const rewardQueue = [];
+  let rewardCur = null, rewardPick = null;
+  function queueReward(r) { rewardQueue.push(r); }
+  function showNextReward() {
+    if (rewardCur || !rewardQueue.length) return;
+    if (limitOpen || screen === null || screen === 'pause' || screen === 'welcome' || game.mode === 'play') return; // počká
+    rewardCur = rewardQueue.shift();
+    rewardPick = null;
+    const r = rewardCur;
+    const cv = $('#rw-cv'), grid = $('#rw-grid'), amt = $('#rw-amount'), ok = $('#btn-rw-ok');
+    cv.classList.add('hidden');
+    grid.classList.add('hidden');
+    grid.innerHTML = '';
+    amt.innerHTML = '';
+    ok.disabled = false;
+    ok.textContent = 'OK';
+    if (r.kind === 'daily') {
+      $('#rw-icon').textContent = '🌞';
+      $('#rw-title').textContent = 'Denný bonus';
+      $('#rw-text').textContent = 'Vyber si denný bonus';
+      amt.innerHTML = '+' + price(DAILY_BONUS);
+    } else if (r.kind === 'coins') {
+      $('#rw-icon').textContent = r.icon;
+      $('#rw-title').textContent = r.title;
+      $('#rw-text').textContent = r.text;
+      amt.innerHTML = '+' + price(r.amount);
+    } else if (r.kind === 'item') {
+      $('#rw-icon').textContent = '🎁';
+      $('#rw-title').textContent = 'Odmena z obchodu';
+      $('#rw-text').textContent = `${r.it.name} (${COLORS[r.c][0].toLowerCase()}). Nájdeš to v Šatníku.`;
+      cv.classList.remove('hidden');
+      const model = catById(store.catL);
+      paintCat(cv, model, 150, Object.assign({}, outfitOf(model.id), { [r.it.slot]: parseVariant(r.k) }), r.it.slot === 'bed' ? 'full' : 'full', { noBed: r.it.slot !== 'bed' });
+    } else if (r.kind === 'cat') {
+      $('#rw-icon').textContent = '🐱';
+      $('#rw-title').textContent = 'Mačička zadarmo';
+      $('#rw-text').textContent = 'Vyber si jednu mačičku, ktorú ešte nemáš.';
+      grid.classList.remove('hidden');
+      ok.disabled = true;
+      ok.textContent = 'Vyber mačičku';
+      for (const cat of CATS.filter(c => !ownsCat(c.id))) {
+        const b = document.createElement('button');
+        b.className = 'cat-card';
+        b.innerHTML = '<canvas></canvas><span class="cat-name"></span>';
+        b.querySelector('.cat-name').textContent = cat.name;
+        paintCat(b.querySelector('canvas'), cat, 70, null, 'full');
+        b.addEventListener('click', () => {
+          audio.init();
+          rewardPick = cat.id;
+          $$('#rw-grid .cat-card').forEach(x => x.classList.toggle('sel', x === b));
+          ok.disabled = false;
+          ok.textContent = `Vybrať: ${cat.name}`;
+          audio.preview(cat.voice, 76);
+        });
+        grid.append(b);
+      }
+    }
+    $('#reward').classList.remove('hidden');
+  }
+  $('#btn-rw-ok').addEventListener('click', () => {
+    const r = rewardCur;
+    if (!r) return;
+    audio.init();
+    if (r.kind === 'daily') {
+      store.coins += DAILY_BONUS;
+      store.bonusDay = dayKey();
+    } else if (r.kind === 'cat') {
+      if (!rewardPick) return;
+      unlockCat(rewardPick);
+      store.learn.cat -= LEARN_CAT_EVERY;
+      store.learn.catDay = dayKey();
+      toast(`${catById(rewardPick).name} je teraz tvoja! 🎉`);
+    }
+    audio.preview(chosenCats()[0].voice, 81);
+    save();
+    updateWallets();
+    renderStats();
+    rewardCur = null;
+    $('#reward').classList.add('hidden');
+    if (screen === 'cats') updateCatUI();
+    showNextReward();
+  });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { checkDaily(); checkRewards(); } });
 
   // ---------- Výsledok ----------
   game.onEnd = r => {
@@ -2425,12 +2608,15 @@
     save();
     syncGame();
     go('menu');
+    checkRewards();
     toast('Vitaj v Mačacom zbore! 🎶');
   });
 
   save();
+  renderStats();
+  checkDaily();
   if (store.cats.length < 2) { renderWelcome(); show('welcome'); }
-  else show('menu');
+  else { show('menu'); checkRewards(); }
 
   // ---------- Aktualizácie a inštalácia na plochu ----------
   // Service worker: hra ide aj offline, online sa vždy načíta najnovšia verzia.

@@ -4,8 +4,8 @@
  * Hodiny hry = AudioContext.currentTime, takže obraz je vždy zladený s hudbou.
  */
 const HIT_EARLY = 0.035;  // o koľko skôr (s) sa dá pochúťka chytiť
-const HIT_LATE = 0.07;    // o koľko neskôr (s) sa ešte počíta
-const FALL_MULT = 0.88;   // všetky pochúťky padajú o 12 % rýchlejšie ako je zapísané v pesničke
+const HIT_LATE = 0.06;    // o koľko neskôr (s) sa ešte počíta
+const FALL_MULT = 0.78;   // všetky pochúťky padajú o 22 % rýchlejšie ako je zapísané v pesničke
 const MAX_LIVES = 3;
 const FONT = 'Fredoka, system-ui, -apple-system, "Segoe UI", sans-serif';
 const FX_COLORS = ['#ffe36e', '#ff8fb8', '#7cc6ff', '#8be08b', '#ffffff', '#b49bff'];
@@ -72,7 +72,7 @@ class Game {
     this.catSize = Math.min(this.half * 0.62, this.H * 0.14);
     this.catBottom = this.catchY + this.catSize * 0.47; // pusa mačky je presne na čiare chytania
     this.snackR = this.catSize * 0.2;
-    this.tol = this.catSize * 0.27 + this.snackR * 0.45; // ako presne musí mačka stáť pod pochúťkou
+    this.tol = this.catSize * 0.23 + this.snackR * 0.45; // ako presne musí mačka stáť pod pochúťkou
     this.spawnY = -this.snackR * 2;
     for (const c of this.cats) {
       c.x = c.target = this.mode === 'idle' || !c.x ? this.laneX(c.side, 0.5) : this.clampX(c.side, c.x);
@@ -368,7 +368,7 @@ class Game {
     const p = clamp((t - n.time) / n.hold.dur, 0, 1);
     const x = this.laneX(n.side, n.u + (n.u2 - n.u) * p);
     const c = this.cats[n.side];
-    if (Math.abs(c.x - x) <= this.tol * 1.12) {
+    if (Math.abs(c.x - x) <= this.tol * 1.05) {
       n.holdLastOk = t;
       this.score += dt * 240 * this.mult();
       if (Math.random() < dt * 14) {
