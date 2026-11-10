@@ -202,7 +202,7 @@
     show(name);
     // čas minutý: mimo učenia hneď naskočí limit
     if (store.timeLeft <= 0 && !OPEN_WHEN_OUT.includes(name)) openLimit();
-    if (name === 'menu') { renderStats(); renderMistakeBadge(); }
+    if (name === 'menu') { renderStats(); renderMistakeBadge(); fitMenu(); }
     showNextReward();
   }
 
@@ -1440,6 +1440,24 @@
     showNextReward();
   });
   window.addEventListener('resize', () => { if (clk && !$('#limit-clock').classList.contains('hidden')) drawClock(); });
+
+  // Menu musí skončiť nad hlavami mačiek. Keď je displej malý, skryje sa podnadpis a menu sa zmenší.
+  function fitMenu() {
+    const box = $('#menu-fit');
+    if (screen !== 'menu' || !game.H) return;
+    box.classList.remove('tight');
+    box.style.transform = '';
+    const limit = game.catchY - game.catSize * 0.75 - 6; // vrch uší mačky (s malou rezervou)
+    const top = box.getBoundingClientRect().top;
+    const bottom = () => $('.menu-buttons').getBoundingClientRect().bottom;
+    if (bottom() <= limit) return;
+    box.classList.add('tight');
+    const h = bottom() - top;
+    if (h > limit - top) box.style.transform = `scale(${Math.max(0.6, (limit - top) / h).toFixed(3)})`;
+  }
+  window.addEventListener('resize', () => requestAnimationFrame(fitMenu));
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitMenu);
+  setTimeout(fitMenu, 0);
 
   updateTimePill();
   if (store.timeLeft <= 0) openLimit(); // zatvorenie a otvorenie aplikácie limit neobíde

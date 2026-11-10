@@ -59,7 +59,8 @@ body {
 #screen-menu {
   align-items: center;
   justify-content: flex-start;
-  padding-top: 8vh;
+  /* obsah začína pod časom a mincami (aj s výrezom displeja) */
+  padding-top: max(54px, calc(env(safe-area-inset-top) + 42px), 8vh);
   gap: 4vh;
   pointer-events: none;
 }
@@ -672,7 +673,7 @@ kbd {
 }
 
 @media (max-height: 700px) {
-  #screen-menu { padding-top: 4vh; gap: 2.5vh; }
+  #screen-menu { padding-top: max(54px, calc(env(safe-area-inset-top) + 42px)); gap: 2.5vh; }
   .btn { padding: 11px 18px; font-size: 18px; }
 }
 
@@ -942,7 +943,7 @@ kbd {
   display: flex;
   flex-direction: column;
   gap: 5px;
-  margin-top: 26px;
+  margin-top: 0;
   background: rgba(0, 0, 0, .18);
   border-radius: 14px;
   padding: 7px 12px 8px;
@@ -962,7 +963,7 @@ kbd {
 .stat i { grid-column: 1 / -1; display: block; height: 5px; border-radius: 99px; background: rgba(255, 255, 255, .22); overflow: hidden; }
 .stat em { display: block; height: 100%; width: 0; border-radius: 99px; background: linear-gradient(90deg, #ffe36e, #ff8fb8); transition: width .5s; }
 @media (max-height: 700px) {
-  .stats { margin-top: 22px; gap: 3px; padding: 5px 10px 6px; }
+  .stats { gap: 3px; padding: 5px 10px 6px; }
   .menu-top .logo { font-size: clamp(38px, 12vw, 60px); }
 }
 
@@ -1067,3 +1068,18 @@ kbd {
 .bed-zzz { font-size: 22px; font-weight: 700; color: #b9c0ff; letter-spacing: 4px; animation: bedZ 2.4s ease-in-out infinite; }
 @keyframes bedZ { 0%, 100% { opacity: .35; transform: translateY(4px); } 50% { opacity: 1; transform: translateY(-4px); } }
 .bed-wake { margin: 0; font-weight: 700; color: #ffe36e; }
+
+/* ---------- Menu sa zmestí nad mačky aj na malom displeji ---------- */
+.menu-fit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: inherit;
+  width: 100%;
+  transform-origin: top center;
+  pointer-events: none;
+}
+.menu-fit > * { pointer-events: auto; }
+.menu-fit.tight .tagline { display: none; }
+.menu-fit.tight { gap: 2vh; }
+.menu-fit.tight .menu-buttons { gap: 9px; }
