@@ -43,7 +43,10 @@
           <button class="btn" data-go="cats">🐾 Mačky</button>
           <button class="btn" data-go="shop">🛒 Obchod</button>
         </div>
-        <button class="btn ghost" data-go="help">Ako hrať?</button>
+        <div class="btn-row">
+          <button class="btn ghost mk-btn" data-go="mistakes">📝 Chyby<span class="mk-badge hidden" id="mk-badge"></span></button>
+          <button class="btn ghost" data-go="help">Ako hrať?</button>
+        </div>
       </div>
     </section>
 
@@ -292,6 +295,16 @@
       <div id="shop-list" class="list"></div>
     </section>
 
+    <!-- Chyby: nesprávne odpovede z limitu aj z učenia -->
+    <section id="screen-mistakes" class="screen panel hidden">
+      <header class="bar">
+        <button class="icon-btn" data-go="menu" aria-label="Späť">←</button>
+        <h2>Chyby</h2>
+      </header>
+      <div class="tabs" id="mk-tabs"></div>
+      <div id="mk-list" class="list"></div>
+    </section>
+
     <!-- Návod -->
     <section id="screen-help" class="screen panel hidden">
       <header class="bar">
@@ -313,6 +326,7 @@
           <li><b>Prvouka</b>: chyť slovo prstom a presuň ho do správnej medzery vo vete alebo k obrázku (kostra, dopravné prostriedky). Dá sa aj ťuknúť na slovo a potom na medzeru. Všetko správne +2 IQ, aspoň polovica +1 IQ.</li>
           <li><b>Odmeny za učenie</b>: každé dokončené učenie, za ktoré mačička dostane IQ, sa počíta. Každých 30 = vec z obchodu zadarmo, každých 100 = mačička zadarmo podľa výberu (najviac 1× za deň). Keď sa učíš 7 dní za sebou, dostaneš 2 500 bodov. Za prvé otvorenie hry každý deň je denný bonus 500 bodov.</li>
           <li><b>Mačacia škola</b> (druhá hra v ponuke Hrať): 10 otázok – príklady a hodiny, vždy 3 možnosti a len jedna je správna. Za lekciu stúpne vybranej mačičke <b>IQ</b>: 10/10 +3, 8–9 +2, 5–7 +1 (IQ je od 0 do 150).</li>
+          <li><b>📝 Chyby</b> v menu: tu sa zapisujú všetky nesprávne odpovede – z limitu aj z učenia (Mačacia škola, Diktát, Prvouka), aj so správnou odpoveďou.</li>
           <li>Mačku môžeš <b>premenovať</b> ceruzkou ✏️ v jej detaile.</li>
           <li>Na počítači: <kbd>A</kbd> <kbd>D</kbd> ľavá mačka, <kbd>←</kbd> <kbd>→</kbd> pravá mačka. Myš ovláda mačku na strane, kde je kurzor. <kbd>Esc</kbd> = pauza.</li>
         </ul>

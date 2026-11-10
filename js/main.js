@@ -171,7 +171,7 @@
   }
 
   // ---------- Obrazovky ----------
-  const SCREENS = ['menu', 'welcome', 'games', 'songs', 'school', 'lesson', 'dictation', 'prvouka', 'cats', 'cat', 'shop', 'help', 'pause', 'result'];
+  const SCREENS = ['menu', 'welcome', 'games', 'songs', 'school', 'lesson', 'dictation', 'prvouka', 'cats', 'cat', 'shop', 'help', 'mistakes', 'pause', 'result'];
   let screen = 'menu';
   function show(name) {
     screen = name;
@@ -196,12 +196,13 @@
     if (name !== 'prvouka') pvStop();
     if (name === 'cats') renderCats();
     if (name === 'shop') renderShop();
+    if (name === 'mistakes') renderMistakes();
     if (name === 'cat') { $('#rename').classList.add('hidden'); renderCatDetail(); }
     if (name === 'menu') syncGame();
     show(name);
     // čas minutý: mimo učenia hneď naskočí limit
     if (store.timeLeft <= 0 && !OPEN_WHEN_OUT.includes(name)) openLimit();
-    if (name === 'menu') renderStats();
+    if (name === 'menu') { renderStats(); renderMistakeBadge(); }
     showNextReward();
   }
 
@@ -214,6 +215,98 @@
     if (b.dataset.mode) schoolMode = b.dataset.mode; // Mačacia škola alebo Diktát
     go(b.dataset.go);
   });
+
+  // ---------- Chyby: zápis nesprávnych odpovedí z limitu aj z učenia ----------
+  // Každá chyba: { t: čas, src: 'limit' | 'school' | 'dict' | 'pv', cat: meno mačičky, q: úloha, a: odpoveď, r: správne, note }
+  const MISTAKES_MAX = 300;
+  const MK_SRC = {
+    limit: { icon: '⏱', name: 'Limit' },
+    school: { icon: '🧠', name: 'Mačacia škola' },
+    dict: { icon: '✏️', name: 'Diktát' },
+    pv: { icon: '🌍', name: 'Prvouka' },
+  };
+  if (!Array.isArray(store.mistakes)) store.mistakes = [];
+  if (typeof store.mistakesSeen !== 'number') store.mistakesSeen = Date.now();
+  let mkFilter = 'all';
+
+  function logMistake(src, q, a, r, extra) {
+    store.mistakes.push(Object.assign({ t: Date.now(), src, q, a, r }, extra || {}));
+    if (store.mistakes.length > MISTAKES_MAX) store.mistakes.splice(0, store.mistakes.length - MISTAKES_MAX);
+    save();
+  }
+
+  function renderMistakeBadge() {
+    const n = store.mistakes.filter(m => m.t > store.mistakesSeen).length;
+    const b = $('#mk-badge');
+    b.textContent = n > 99 ? '99+' : n;
+    b.classList.toggle('hidden', !n);
+  }
+
+  function renderMistakes() {
+    const tabs = $('#mk-tabs');
+    tabs.innerHTML = '';
+    for (const id of ['all', ...Object.keys(MK_SRC)]) {
+      const n = id === 'all' ? store.mistakes.length : store.mistakes.filter(m => m.src === id).length;
+      const b = document.createElement('button');
+      b.className = 'tab' + (mkFilter === id ? ' active' : '');
+      b.textContent = `${id === 'all' ? 'Všetko' : MK_SRC[id].icon + ' ' + MK_SRC[id].name} (${n})`;
+      b.addEventListener('click', () => { audio.blip(); mkFilter = id; renderMistakes(); $('#mk-list').scrollTop = 0; });
+      tabs.append(b);
+    }
+    const list = $('#mk-list');
+    list.innerHTML = '';
+    const items = store.mistakes.filter(m => mkFilter === 'all' || m.src === mkFilter).slice().reverse();
+    if (!items.length) {
+      const p = document.createElement('p');
+      p.className = 'mk-empty';
+      p.textContent = 'Zatiaľ žiadne chyby 🎉';
+      list.append(p);
+    }
+    let lastDay = '';
+    for (const m of items) {
+      const d = new Date(m.t);
+      const day = `${d.getDate()}. ${d.getMonth() + 1}. ${d.getFullYear()}`;
+      if (day !== lastDay) {
+        lastDay = day;
+        const h = document.createElement('h3');
+        h.className = 'mk-day';
+        h.textContent = day;
+        list.append(h);
+      }
+      const el = document.createElement('div');
+      el.className = 'mk' + (m.t > store.mistakesSeen ? ' new' : '');
+      const src = MK_SRC[m.src] || { icon: '❓', name: m.src };
+      const head = document.createElement('div');
+      head.className = 'mk-head';
+      head.textContent = `${src.icon} ${src.name}${m.cat ? ' · ' + m.cat : ''} · ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+      const q = document.createElement('div');
+      q.className = 'mk-q';
+      q.textContent = m.q;
+      el.append(head, q);
+      if (m.a != null && m.a !== '') {
+        const a = document.createElement('div');
+        a.className = 'mk-a';
+        a.textContent = '✗ ' + m.a;
+        el.append(a);
+      }
+      if (m.r != null && m.r !== '') {
+        const r = document.createElement('div');
+        r.className = 'mk-r';
+        r.textContent = '✓ ' + m.r;
+        el.append(r);
+      }
+      if (m.note) {
+        const n = document.createElement('div');
+        n.className = 'mk-note';
+        n.textContent = m.note;
+        el.append(n);
+      }
+      list.append(el);
+    }
+    // otvorením sa chyby označia ako videné (zvýraznenie ostane do ďalšieho otvorenia)
+    store.mistakesSeen = Date.now();
+    save();
+  }
 
   // ---------- Pesničky ----------
   const starStr = n => '★'.repeat(n) + `<span class="off">${'★'.repeat(3 - n)}</span>`;
@@ -1001,6 +1094,7 @@
     p.done = true;
     const ok = p.ans === p.res;
     recordSkill('math', ok);
+    if (!ok) logMistake('limit', `${p.a} ${p.op} ${p.b} = ?`, String(p.ans), String(p.res));
     feedbackSound(ok);
     quiz.busy = true;
     renderQuiz(ok ? 'ok' : 'bad');
@@ -1264,6 +1358,16 @@
     const ok = clockOk(clk.hp, clk.mn, p.h, p.m);
     p.ok = ok;
     recordSkill('clock', ok);
+    if (!ok) {
+      const why = [];
+      if (clk.mn !== p.m) why.push(`veľká ručička bola na ${clk.mn / 5 || 12}, má byť na ${p.m / 5 || 12}`);
+      const want = p.m === 0 ? `na ${p.h % 12 || 12}` : `medzi ${p.h % 12 || 12} a ${(p.h % 12) + 1}`;
+      if (!clockOk(clk.hp, p.m, p.h, p.m)) why.push(`malá ručička bola ${hourHandText(clk.hp)}, má byť ${want}`);
+      const hk = clk.hp / 12, hn = Math.round(hk); // čo približne ukazovali nastavené ručičky
+      const shownH = (Math.abs(hk - hn) * 12 <= 2 ? hn : Math.floor(hk)) % 12 || 12;
+      logMistake('limit', `🕐 Nastav hodiny na ${fmtHM(p.h, p.m)}`, `${shownH}:${String(clk.mn).padStart(2, '0')}`,
+        `${p.h % 12 || 12}:${String(p.m).padStart(2, '0')}`, { note: why.join('; ') });
+    }
     feedbackSound(ok);
     clk.busy = true;
     if (!ok) clk.ghost = handsFor(p.h, p.m); // ukáž, kde mali byť ručičky
@@ -1518,6 +1622,10 @@
     const ok = q.opts[idx].ok;
     lesson.busy = true;
     recordSkill(q.type, ok); // aj škola sa počíta do pravidla výberu úloh v limite
+    if (!ok) {
+      logMistake('school', q.type === 'math' ? `${q.a} ${q.op} ${q.b} = ?` : `🕐 Koľko je hodín? (hodiny ukazovali ${fmtHM(q.h, q.m)})`,
+        q.opts[idx].label, q.opts.find(o => o.ok).label, { cat: catById(lesson.catId).name });
+    }
     [...$('#lesson-options').children].forEach((b, i) => {
       b.disabled = true;
       if (q.opts[i].ok) b.classList.add('ok');
@@ -1908,6 +2016,8 @@
     } else {
       const ops = diffWords(typed.split(' '), right.split(' '));
       const nBad = ops.filter(o => o.k !== 'ok').length;
+      logMistake('dict', `✏️ Diktát – ${nBad === 1 ? '1 chyba' : nBad < 5 ? nBad + ' chyby' : nBad + ' chýb'}`, typed, right,
+        { cat: cat.name, note: ops.filter(o => o.k !== 'ok').map(o => o.k === 'bad' ? `${o.t} → ${o.r}` : o.k === 'extra' ? `${o.t} (navyše)` : `${o.r} (chýba)`).join(', ') });
       // za každú chybu −1 IQ, najmenej 0 (do mínusu nejde)
       const before = iqOf(cat.id);
       addIq(cat.id, -nBad * DICT_MISTAKE_IQ);
@@ -2297,6 +2407,24 @@
     const good = pv.slots.filter((s, k) => pv.words[pv.place[k]].text === s).length;
     const total = pv.slots.length;
     const cat = catById(pv.catId);
+    // chyby do zápisu: pri texte celá veta s medzerou, pri obrázkoch názov úlohy
+    const sentOf = [];
+    if (pv.ex.type === 'text') {
+      for (const sent of pv.ex.items) {
+        const n = (sent.match(/\{[^}]+\}/g) || []).length;
+        for (let j = 0; j < n; j++) {
+          let c = 0;
+          sentOf.push(sent.replace(/\{([^}]+)\}/g, (_, w) => (c++ === j ? '____' : w)));
+        }
+      }
+    }
+    pv.slots.forEach((r, k) => {
+      const a = pv.words[pv.place[k]].text;
+      if (a === r) return;
+      const q = pv.ex.type === 'text' ? sentOf[k]
+        : pv.ex.type === 'skeleton' ? `${pv.ex.icon} ${pv.ex.title} – miesto č. ${k + 1}` : `${pv.ex.icon} ${pv.ex.title} – obrázok`;
+      logMistake('pv', q, a, r, { cat: cat.name });
+    });
     const before = iqOf(cat.id);
     const reward = pvIq(good, total);
     addIq(cat.id, reward);

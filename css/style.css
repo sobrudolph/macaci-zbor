@@ -1015,3 +1015,39 @@ kbd {
   padding: 3px 9px;
 }
 .game-card.empty { filter: grayscale(.7); opacity: .75; }
+
+/* ---------- Chyby ---------- */
+.mk-btn { position: relative; }
+.mk-badge {
+  position: absolute;
+  top: -6px;
+  right: -4px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #e0475b;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 22px;
+  text-align: center;
+}
+.mk-day { margin: 6px 2px 0; font-size: 14px; font-weight: 700; opacity: .85; }
+.mk {
+  background: #fff;
+  color: var(--ink);
+  border-radius: 16px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: none;
+}
+.mk.new { box-shadow: inset 4px 0 0 #e0475b; }
+.mk-head { font-size: 12px; color: #7a7290; font-weight: 600; }
+.mk-q { font-size: 17px; font-weight: 700; overflow-wrap: anywhere; }
+.mk-a { color: #e0475b; font-weight: 600; text-decoration: line-through; overflow-wrap: anywhere; }
+.mk-r { color: #2e9e45; font-weight: 700; overflow-wrap: anywhere; }
+.mk-note { font-size: 13px; color: #7a7290; overflow-wrap: anywhere; }
+.mk-empty { text-align: center; font-size: 18px; margin-top: 30px; }
