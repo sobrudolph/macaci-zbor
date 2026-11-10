@@ -309,6 +309,7 @@
   }
 
   // ---------- Pesničky ----------
+  const DIFF_MAX = 5; // najťažšie pesničky (extrém) majú 5 bodiek
   const starStr = n => '★'.repeat(n) + `<span class="off">${'★'.repeat(3 - n)}</span>`;
 
   function renderSongs() {
@@ -327,7 +328,7 @@
           <div class="song-credit"></div>
         </div>
         <div class="song-meta">
-          <div class="diff" title="Obtiažnosť">${'●'.repeat(s.difficulty)}${'○'.repeat(4 - s.difficulty)}</div>
+          <div class="diff${s.difficulty >= DIFF_MAX ? ' hot' : ''}" title="Obtiažnosť">${'●'.repeat(s.difficulty)}${'○'.repeat(Math.max(0, DIFF_MAX - s.difficulty))}</div>
           <div class="stars">${starStr(best ? best.stars : 0)}</div>
           <div class="best">${best ? fmt(best.score) : '—'}</div>
         </div>`;
@@ -983,7 +984,7 @@
   const OPEN_WHEN_OUT = ['games', ...LEARN_SCREENS];
   let tickN = 0;
   setInterval(() => {
-    if (document.hidden || limitOpen) return;
+    if (document.hidden || limitOpen || bedOpen) return; // počas večierky čas nebeží
     if (store.timeLeft > 0 && !LEARN_SCREENS.includes(screen)) {
       store.timeLeft = Math.max(0, store.timeLeft - 1);
       updateTimePill();
@@ -2805,6 +2806,32 @@
     showNextReward();
   });
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { checkDaily(); checkRewards(); rollSickness(); sickTick(); } });
+
+  // ---------- Večierka: od 21:00 do 6:00 sa nedá hrať ani učiť ----------
+  const BED_H = 21, WAKE_H = 6;
+  let bedOpen = false;
+  const isBedtime = (d = new Date()) => d.getHours() >= BED_H || d.getHours() < WAKE_H;
+  function checkBedtime() {
+    const night = isBedtime();
+    if (night === bedOpen) return;
+    bedOpen = night;
+    $('#bedtime').classList.toggle('hidden', !night);
+    if (!night) return;
+    if (game.mode === 'play') doPause();
+    if (window.speechSynthesis) window.speechSynthesis.cancel(); // diktát stíchne
+    $('#bed-text').textContent = `Večierka je o ${BED_H}:00. Treba ísť spať – mačičky už tiež spia.`;
+    $('#bed-wake').textContent = `Hrať sa dá znova ráno od ${WAKE_H}:00. Dobrú noc! 🌙`;
+    const cats = $('#bed-cats');
+    cats.innerHTML = '';
+    for (const cat of chosenCats()) {
+      const cv = document.createElement('canvas');
+      cats.append(cv);
+      paintCat(cv, cat, 110, outfitOf(cat.id), 'full', { blink: true, noBed: true });
+    }
+  }
+  setInterval(checkBedtime, 5000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) checkBedtime(); });
+  setTimeout(checkBedtime, 0); // až keď je celý skript načítaný
 
   // ---------- Choroba mačičiek ----------
   // Každá mačička môže ochorieť najviac 1× za mesiac (nemusí vôbec), vždy ostane aspoň jedna zdravá.

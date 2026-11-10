@@ -17,6 +17,7 @@ Každú mačku ovládaš jedným palcom. Keď pochúťku chytíš, mačka zamňa
 - **Balíčky úloh v učení:** Mačacia škola 2 lekcie, Diktát 4 vety, Prvouka 3 úlohy. Úspešné učenie ubere úlohu
   z balíčka; prázdny predmet sa zamkne („Úlohy sa minuli“) a všetky sa naplnia až keď sa minú všetky –
   dieťa sa tak musí učiť aj predmety, ktoré nemá rado (čakanie ani nový deň ich neodomkne).
+- **Večierka:** od 21:00 do 6:00 je cez celú aplikáciu okno „Už je neskoro“ – nedá sa hrať ani učiť a limit sa neodpočítava.
 - **Chyby:** v menu sa zapisujú všetky nesprávne odpovede z limitu aj z učenia (posledných 300) so správnou odpoveďou.
 - **Ekonomika:** na začiatku 35 000 bodov. Pesnička dá 300 – 750 (podľa obtiažnosti a presnosti),
   Mačacia škola 120 za odpoveď (+300 za 10/10), Diktát 500 za vetu bez chyby, Prvouka 120 za slovo (+200 za všetko správne).
