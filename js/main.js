@@ -187,8 +187,10 @@
       showNextReward();
       return;
     }
+    if (name === 'school' && !canLearn(MODE_SUBJECT[schoolMode])) return;
     if (name === 'songs') renderSongs();
     if (name === 'school') renderSchool();
+    if (name === 'games') renderGamePacks();
     if (name !== 'lesson') lessonStop();
     if (name !== 'dictation') dictStop();
     if (name !== 'prvouka') pvStop();
@@ -1442,6 +1444,7 @@
   let lessonCatId = null;
 
   function startLesson(catId) {
+    if (!canLearn('school')) { if (screen === 'lesson') go('games'); return; }
     lessonStop();
     lessonCatId = catId;
     const seenM = new Set(), seenC = new Set();
@@ -1568,7 +1571,7 @@
     $('#end-iq').textContent = reward
       ? `${cat.name}: IQ ${lesson.startIq} → ${now}` + (now >= IQ_MAX ? ' · Génius! 🎓' : '')
       : `${cat.name} tentoraz IQ nedostane – treba aspoň 5 správnych.`;
-    if (reward >= 1) learnDone(); // úspešné učenie sa počíta do odmien
+    if (reward >= 1) learnDone('school'); // úspešné učenie sa počíta do odmien
     $('#end-earn').innerHTML = `<div class="earn">+${price(coins)}</div><small>na nákupy</small>`;
     $('#lesson-progress').textContent = 'Hotovo';
     $('#lesson-card').classList.add('hidden');
@@ -1649,6 +1652,7 @@
   }
 
   function startDictation(catId) {
+    if (!canLearn('dict')) { if (screen === 'dictation') go('games'); return; }
     dictStop();
     dictCatId = catId;
     dict = { catId, items: [pickSentence()], i: 0, startIq: iqOf(catId), speaking: false, pass: 0, token: 0,
@@ -1891,7 +1895,7 @@
       addIq(cat.id, DICT_IQ);
       const gained = iqOf(cat.id) - before;
       if (gained > 0) popDict(`+${gained} IQ`);
-      learnDone(); // úspešné učenie sa počíta do odmien
+      learnDone('dict'); // úspešné učenie sa počíta do odmien
       verdict.className = 'dict-verdict ok';
       verdict.textContent = `Bez chyby! 🎉${gained > 0 ? ` ${cat.name} má +${gained} IQ.` : ''}`;
       audio.preview(cat.voice, 79);
@@ -2006,6 +2010,7 @@
   }
 
   function startPrvouka(catId) {
+    if (!canLearn('pv')) { if (screen === 'prvouka') go('games'); return; }
     pvStop();
     pvCatId = catId;
     const ex = pickExercise();
@@ -2296,7 +2301,7 @@
     const reward = pvIq(good, total);
     addIq(cat.id, reward);
     const gained = iqOf(cat.id) - before;
-    if (reward >= 1) learnDone(); // úspešné učenie sa počíta do odmien
+    if (reward >= 1) learnDone('pv'); // úspešné učenie sa počíta do odmien
     const coins = good * PV_COINS + (good === total ? PV_ALL_COINS : 0);
     store.coins += coins;
     save();
@@ -2353,10 +2358,52 @@
     pv.raf = requestAnimationFrame(step);
   }
 
+
+  // ---------- Balíčky úloh: aby sa dieťa učilo aj to, čo nemá rado ----------
+  // Každý predmet má balíček úloh. Úspešné učenie (aspoň 1 IQ) z neho jednu úlohu ubere.
+  // Prázdny predmet sa zamkne („Úlohy sa minuli“). Všetky balíčky sa naplnia až vtedy,
+  // keď sa minú všetky – čakanie ani nový deň predmet neodomkne.
+  const SUBJECTS = {
+    school: { name: 'Mačacia škola', size: 2 },
+    dict: { name: 'Diktát', size: 4 },
+    pv: { name: 'Prvouka', size: 3 },
+  };
+  const MODE_SUBJECT = { school: 'school', dictation: 'dict', prvouka: 'pv' };
+  if (!store.packs || typeof store.packs !== 'object') store.packs = {};
+  for (const k of Object.keys(SUBJECTS)) if (typeof store.packs[k] !== 'number') store.packs[k] = SUBJECTS[k].size;
+  const packLeft = subj => store.packs[subj] || 0;
+
+  function useTask(subj) {
+    if (!SUBJECTS[subj]) return;
+    store.packs[subj] = Math.max(0, packLeft(subj) - 1);
+    if (Object.keys(SUBJECTS).every(k => packLeft(k) === 0)) {
+      for (const k of Object.keys(SUBJECTS)) store.packs[k] = SUBJECTS[k].size;
+      queueReward({ kind: 'refill' });
+    } else if (packLeft(subj) === 0) queueReward({ kind: 'empty', subj });
+    save();
+  }
+  /** Ak sa predmet minul, ukáže správu a vráti false. */
+  function canLearn(subj) {
+    if (packLeft(subj) > 0) return true;
+    queueReward({ kind: 'empty', subj });
+    showNextReward();
+    return false;
+  }
+  function renderGamePacks() {
+    $$('.game-card[data-mode]').forEach(card => {
+      const subj = MODE_SUBJECT[card.dataset.mode];
+      let tag = card.querySelector('.gc-pack');
+      if (!tag) { tag = document.createElement('span'); tag.className = 'gc-pack'; card.append(tag); }
+      const left = packLeft(subj);
+      tag.textContent = left ? `📚 ${left}/${SUBJECTS[subj].size}` : '📭';
+      card.classList.toggle('empty', !left);
+    });
+  }
+
   // ---------- Odmeny za učenie, denný bonus a denné učenie ----------
   // Úspešné učenie = dokončená lekcia/veta/úloha, za ktorú si mačička zaslúžila aspoň 1 IQ.
   //  - každých 30 → náhodná vec z obchodu (nie jedlo ani mačička), najviac 1× za deň
-  //  - každých 100 → mačička zadarmo podľa výberu, najviac 1× za deň
+  //  - každých 100 → mačička zadarmo podľa výberu, najviac 1× za mesiac
   //  - každý deň aspoň 1 úspešné učenie → Denné učenie; 7 dní za sebou → +2 500
   //  - prvé otvorenie dňa → denný bonus 500
   const LEARN_ITEM_EVERY = 30;
@@ -2380,7 +2427,8 @@
     set('streak', streakNow(), STREAK_DAYS);
   }
 
-  function learnDone() {
+  function learnDone(subj) {
+    useTask(subj); // z balíčka predmetu ubudne úloha
     const L = store.learn;
     L.total = (L.total || 0) + 1;
     L.item = Math.min(LEARN_ITEM_EVERY, L.item + 1);
@@ -2407,11 +2455,12 @@
       L.itemDay = today;
       grantItem();
     }
-    if (L.cat >= LEARN_CAT_EVERY && L.catDay !== today && !rewardQueue.some(r => r.kind === 'cat')) {
+    // mačička zadarmo najviac 1× za kalendárny mesiac
+    if (L.cat >= LEARN_CAT_EVERY && L.catMonth !== monthKey() && !rewardQueue.some(r => r.kind === 'cat')) {
       if (CATS.some(c => !ownsCat(c.id))) queueReward({ kind: 'cat' });
       else {
         L.cat -= LEARN_CAT_EVERY;
-        L.catDay = today;
+        L.catMonth = monthKey();
         store.coins += 5000;
         queueReward({ kind: 'coins', icon: '🐱', title: 'Mačička zadarmo', text: 'Máš už všetky mačičky, dostávaš body.', amount: 5000 });
       }
@@ -2547,6 +2596,15 @@
       $('#rw-text').textContent = '';
       cv.classList.remove('hidden');
       paintCat(cv, cat, 150, outfitOf(cat.id), 'full', { sick: false, t: 1, noBed: true });
+    } else if (r.kind === 'empty') {
+      const others = Object.keys(SUBJECTS).filter(k => k !== r.subj && packLeft(k) > 0).map(k => SUBJECTS[k].name);
+      $('#rw-icon').textContent = '📭';
+      $('#rw-title').textContent = `${SUBJECTS[r.subj].name}: úlohy sa minuli`;
+      $('#rw-text').textContent = others.length ? `Nové úlohy pribudnú, keď sa naučíš: ${others.join(', ')}.` : '';
+    } else if (r.kind === 'refill') {
+      $('#rw-icon').textContent = '📬';
+      $('#rw-title').textContent = 'Nové úlohy!';
+      $('#rw-text').textContent = Object.values(SUBJECTS).map(x => x.name).join(' · ');
     } else if (r.kind === 'block') {
       $('#rw-icon').textContent = '🤒';
       $('#rw-title').textContent = 'Hrať sa môžeš, až keď mačička vyzdravie.';
@@ -2594,7 +2652,8 @@
       if (sk && careDue(r.id)) maybePromptCare(r.id);
       showNextReward();
       return;
-    } else if (r.kind === 'care' || r.kind === 'block' || r.kind === 'healed') {
+    } else if (r.kind === 'care' || r.kind === 'block' || r.kind === 'healed' || r.kind === 'empty' || r.kind === 'refill') {
+      if (screen === 'games') renderGamePacks();
       closeReward();
       if (screen === 'cat') renderCatDetail();
       if (screen === 'cats') updateCatUI();
@@ -2605,7 +2664,7 @@
       if (!rewardPick) return;
       unlockCat(rewardPick);
       store.learn.cat -= LEARN_CAT_EVERY;
-      store.learn.catDay = dayKey();
+      store.learn.catMonth = monthKey();
       toast(`${catById(rewardPick).name} je teraz ${gx(catById(rewardPick), 'tvoj', 'tvoja', 'tvoje')}! 🎉`);
     }
     audio.preview(chosenCats()[0].voice, 81);

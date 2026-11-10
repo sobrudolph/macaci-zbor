@@ -7,13 +7,16 @@ Každú mačku ovládaš jedným palcom. Keď pochúťku chytíš, mačka zamňa
   (obyčajná 8 000, s doplnkom alebo vzorom 12 000, výnimočná 18 000). Nie sú tu reklamy ani nákupy za skutočné peniaze.
   Každú mačku si môžeš premenovať.
 - **Odmeny za učenie:** každé dokončené učenie, za ktoré mačička dostane aspoň 1 IQ, sa počíta –
-  každých 30 = náhodná vec z obchodu, každých 100 = mačička zadarmo podľa výberu (najviac 1× za deň).
+  každých 30 = náhodná vec z obchodu, každých 100 = mačička zadarmo podľa výberu (najviac 1× za mesiac).
   7 dní učenia za sebou = 2 500 bodov, prvé otvorenie dňa = denný bonus 500 bodov.
   IQ: Mačacia škola +1 až +3 za lekciu, Diktát +2 za vetu (−1 za chybu), Prvouka +1 až +2 za úlohu.
 - **Choroba (pre rodiča – v hre nie sú žiadne nápovedy):** mačička môže ochorieť najviac 1× za mesiac (nemusí vôbec),
   vždy ostane aspoň jedna zdravá. Chorá leží 3 dni v posteli, nemôže spievať ani sa učiť. Liek z Lekárne (1 500)
   skráti chorobu na polovicu. Opatrovateľka (iná vlastná mačička) jej musí 2× denne (do 14:00 a po 14:00) dať jesť
   a piť zo špajze – za každý deň bez toho sa choroba predĺži o 1 deň. Keď nie sú 2 zdravé mačičky, Mačací zbor sa nedá hrať.
+- **Balíčky úloh v učení:** Mačacia škola 2 lekcie, Diktát 4 vety, Prvouka 3 úlohy. Úspešné učenie ubere úlohu
+  z balíčka; prázdny predmet sa zamkne („Úlohy sa minuli“) a všetky sa naplnia až keď sa minú všetky –
+  dieťa sa tak musí učiť aj predmety, ktoré nemá rado (čakanie ani nový deň ich neodomkne).
 - **Ekonomika:** na začiatku 35 000 bodov. Pesnička dá 300 – 750 (podľa obtiažnosti a presnosti),
   Mačacia škola 120 za odpoveď (+300 za 10/10), Diktát 500 za vetu bez chyby, Prvouka 120 za slovo (+200 za všetko správne).
   Jedlo stojí 200 – 1 100, oblečenie 1 500 – 12 000 (zlaté, strieborné a dúhové farby drahšie).
