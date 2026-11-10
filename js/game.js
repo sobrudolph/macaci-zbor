@@ -214,6 +214,8 @@ class Game {
 
   // ---------- Snímka ----------
   _frame(ts) {
+    // ďalšia snímka sa naplánuje vždy – ani chyba pri kreslení nesmie zastaviť hru
+    requestAnimationFrame(t => this._frame(t));
     const dt = Math.min(0.05, Math.max(0, (ts - this.last) / 1000));
     this.last = ts;
     if (this.mode === 'play') this._update(dt);
@@ -224,7 +226,6 @@ class Game {
       if (this.mode === 'idle') this._idle(dt);
     }
     this._render();
-    requestAnimationFrame(t => this._frame(t));
   }
 
   _update(dt) {
@@ -523,6 +524,7 @@ class Game {
         mouth: holding ? 1 : Math.min(1, c.mouth / 0.12),
         blink: c.blink > 0,
         sad: c.sad > 0 || (idle && hungry && c.mouth <= 0),
+        sick: idle && !!look.sick,
         squash: c.squash,
         look: c.look,
         tilt: clamp(c.vel * 0.00025, -0.12, 0.12),

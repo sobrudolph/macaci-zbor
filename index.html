@@ -257,6 +257,7 @@
           <button class="btn small soft" type="button" id="rename-reset" title="Vrátiť pôvodné meno">↺</button>
         </form>
         <canvas id="cat-stage"></canvas>
+        <div class="cat-sick hidden" id="cat-sick"></div>
         <div class="cat-buy hidden" id="cat-buy">
           <p id="cat-buy-text"></p>
           <button class="btn primary" id="btn-buy-cat"></button>
@@ -307,7 +308,7 @@
           <li>Na začiatku si vyberieš <b>2 mačičky zadarmo</b>, ostatné sú zamknuté a dajú sa <b>kúpiť</b>. Body zarábaš pesničkami aj učením (Mačacia škola, Diktát, Prvouka) a v <b>Obchode</b> za ne kupuješ mačičky, jedlo, oblečenie, okuliare, obojky, vodítka a pelechy.</li>
           <li>Mačky po každej pesničke a časom <b>vyhladnú</b>. Nakŕm ich v Mačkách. Najedená mačka (nad 60 %) dá <b>+10 % bodov</b>, hladná (pod 25 %) o 15 % menej.</li>
           <li>Pozor na <b>prekŕmenie</b>: keď kŕmiš plnú mačku, rýchlo priberie. Prejedená mačka sa ťažko hýbe a tučná dá o 10 % menej bodov. Schudne len pohybom v pesničkách, postupne, za viac hier.</li>
-          <li><b>Limit</b>: aplikácia sa dá mať zapnutú 6 minút (čas vidíš v menu vľavo hore). Potom príde úloha: 4 príklady na sčítanie a odčítanie do 20 a 1× ručičkové hodiny. Keď je všetkých 5 správne, pribudne ďalších 6 minút. Pri učení (Diktát, Mačacia škola, Prvouka) sa čas neodpočítava a dá sa učiť aj po vypršaní limitu.</li>
+          <li><b>Limit</b>: aplikácia sa dá mať zapnutú 10 minút (čas vidíš v menu vľavo hore). Potom príde úloha: 4 príklady na sčítanie a odčítanie do 20 a 1× ručičkové hodiny. Keď je všetkých 5 správne, pribudne ďalších 10 minút. Pri učení (Diktát, Mačacia škola, Prvouka) sa čas neodpočítava a dá sa učiť aj po vypršaní limitu.</li>
           <li><b>Diktát</b> (tretia hra): mačička pomaly 2× prečíta vetu z 5 slov, ty ju napíšeš a na konci ti ju opraví. Za vetu bez chyby jej stúpne IQ (+2). Za každú chybu sa 1 IQ odráta (najnižšie na 0). Funguje na iPhone, iPade aj Androide.</li>
           <li><b>Prvouka</b>: chyť slovo prstom a presuň ho do správnej medzery vo vete alebo k obrázku (kostra, dopravné prostriedky). Dá sa aj ťuknúť na slovo a potom na medzeru. Všetko správne +2 IQ, aspoň polovica +1 IQ.</li>
           <li><b>Odmeny za učenie</b>: každé dokončené učenie, za ktoré mačička dostane IQ, sa počíta. Každých 30 = vec z obchodu zadarmo, každých 100 = mačička zadarmo podľa výberu (najviac 1× za deň). Keď sa učíš 7 dní za sebou, dostaneš 2 500 bodov. Za prvé otvorenie hry každý deň je denný bonus 500 bodov.</li>
@@ -347,7 +348,7 @@
         </div>
       </div>
     </section>
-    <!-- Limit hrania: po 6 minútach príklady alebo ručičkové hodiny -->
+    <!-- Limit hrania: po 10 minútach príklady alebo ručičkové hodiny -->
     <section id="limit" class="screen modal hidden" aria-live="polite">
       <div class="card" id="limit-wall">
         <div class="limit-big">⏰</div>
@@ -391,6 +392,7 @@
         <p class="limit-text" id="rw-text"></p>
         <div class="rw-amount" id="rw-amount"></div>
         <div id="rw-grid" class="grid rw-grid hidden"></div>
+        <div class="rw-actions hidden" id="rw-actions"></div>
         <button class="btn primary" id="btn-rw-ok">OK</button>
       </div>
     </section>

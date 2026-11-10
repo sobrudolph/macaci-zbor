@@ -575,9 +575,12 @@ const FOODS = [
   { id: 't-cheese', name: 'Syrové kocky', kind: 'treat', icon: 'cheese', color: '#ffd84d', fill: 10, price: 200 },
   { id: 't-cream', name: 'Krémová pochúťka', kind: 'treat', icon: 'tube', color: '#b49bff', fill: 15, price: 300 },
   { id: 't-cake', name: 'Narodeninová tortička', kind: 'cake', color: '#ff7eb6', fill: 60, price: 1100 },
+  // lekáreň – liek skráti chorobu mačičky na polovicu
+  { id: 'med', name: 'Liek pre mačičky', kind: 'med', color: '#e0475b', fill: 0, price: 1500 },
 ];
 const FOOD_BY_ID = Object.fromEntries(FOODS.map(f => [f.id, f]));
 const FOOD_GROUPS = [
+  { id: 'med', name: 'Lekáreň', kinds: ['med'] },
   { name: 'Granule', kinds: ['bag'] },
   { name: 'Konzervy a kapsičky', kinds: ['can', 'pouch'] },
   { name: 'Mlieko', kinds: ['milk'] },
@@ -676,6 +679,14 @@ function drawFood(g, food, x, y, r) {
       circ(g, -r * 0.45, -r * 0.55, r * 0.09); g.fillStyle = '#ffffff'; g.fill(); g.stroke();
       rrPath(g, -r * 0.55, -r * 0.3, r * 1.1, r * 0.95, r * 0.2); g.fillStyle = '#fffaf0'; g.fill(); g.stroke();
       drawFoodIcon(g, food.icon, 0, r * 0.18, r * 0.38);
+      break;
+    case 'med':
+      // fľaštička s liekom a červeným krížom
+      rrPath(g, -r * 0.6, -r * 0.55, r * 1.2, r * 1.45, r * 0.22); g.fillStyle = '#ffffff'; g.fill(); g.stroke();
+      rrPath(g, -r * 0.42, -r * 0.95, r * 0.84, r * 0.42, r * 0.1); g.fillStyle = col; g.fill(); g.stroke();
+      g.fillStyle = col;
+      g.fillRect(-r * 0.13, -r * 0.2, r * 0.26, r * 0.78);
+      g.fillRect(-r * 0.39, r * 0.06, r * 0.78, r * 0.26);
       break;
     case 'cake':
       ell(g, 0, r * 0.55, r * 0.95, r * 0.3); g.fillStyle = '#ffffff'; g.fill(); g.stroke();

@@ -38,6 +38,9 @@
   const catById = id => CATS.find(c => c.id === id) || CATS[0];
   const chosenCats = () => [catById(store.catL), catById(store.catR)];
   const ownsCat = id => store.cats.includes(id);
+  function isSick(id) { return !!(store.sick && store.sick[id]); }
+  /** Tvar podľa rodu mačky: on (m), ona (f), ono (n) – napr. gx(cat, 'ochorel', 'ochorela', 'ochorelo'). */
+  const gx = (cat, m, f, n) => (cat && cat.g === 'm' ? m : cat && cat.g === 'n' ? (n == null ? m : n) : f);
   const ownedCats = () => CATS.filter(c => ownsCat(c.id));
   /** Cena mačky: obyčajná 8 000, s doplnkom alebo vzorom 12 000, výnimočná 18 000. */
   const SPECIAL_ACC = ['crown', 'halo', 'wizard', 'tophat', 'braid', 'antenna'];
@@ -128,7 +131,7 @@
   function syncGame() {
     const cats = chosenCats();
     game.setCats(cats);
-    game.looks = cats.map(c => ({ outfit: outfitOf(c.id), hunger: hungerOf(c.id), fat: fatOf(c.id) }));
+    game.looks = cats.map(c => ({ outfit: outfitOf(c.id), hunger: hungerOf(c.id), fat: fatOf(c.id), sick: isSick(c.id) }));
   }
   syncGame();
   setInterval(syncGame, 60000);
@@ -160,7 +163,7 @@
     const g = prepCanvas(cv, px, px);
     const f = FOCUS[focus] || FOCUS.full;
     const s = px / f.h;
-    drawCat(g, cat, px / 2 - f.cx * s, px / 2 - f.cy * s, 105 * s, Object.assign({ t: 0.6, outfit, fat: fatOf(cat.id) }, st));
+    drawCat(g, cat, px / 2 - f.cx * s, px / 2 - f.cy * s, 105 * s, Object.assign({ t: 0.6, outfit, fat: fatOf(cat.id), sick: isSick(cat.id) }, st));
   }
   function paintFood(cv, food, px) {
     const g = prepCanvas(cv, px, px);
@@ -179,6 +182,11 @@
   }
 
   function go(name) {
+    if (name === 'songs' && !singersReady()) {
+      queueReward({ kind: 'block' });
+      showNextReward();
+      return;
+    }
     if (name === 'songs') renderSongs();
     if (name === 'school') renderSchool();
     if (name !== 'lesson') lessonStop();
@@ -234,16 +242,21 @@
       list.append(el);
     }
     // upozornenie na hladné mačky
-    const hungry = chosenCats().filter(c => hungerOf(c.id) < 25).map(c => c.name);
+    const hungryCats = chosenCats().filter(c => hungerOf(c.id) < 25);
+    const hungry = hungryCats.map(c => c.name);
     const hint = $('#songs-hint');
     hint.classList.toggle('hidden', !hungry.length);
     if (hungry.length) {
-      hint.textContent = `${hungry.join(' a ')} ${hungry.length > 1 ? 'sú hladné' : 'je hladná'} – za pesničku dostaneš menej bodov. Nakŕm ich v Mačkách.`;
+      const one = hungryCats[0];
+      hint.textContent = hungry.length > 1
+        ? `${hungry.join(' a ')} sú ${hungryCats.some(c => c.g === 'm') ? 'hladní' : 'hladné'} – za pesničku dostaneš menej bodov. Nakŕm ich v Mačkách.`
+        : `${one.name} je ${gx(one, 'hladný', 'hladná', 'hladné')} – za pesničku dostaneš menej bodov. Nakŕm ${gx(one, 'ho', 'ju', 'ho')} v Mačkách.`;
     }
   }
 
   let current = null;
   function startSong(song) {
+    if (!singersReady()) { queueReward({ kind: 'block' }); showNextReward(); return; }
     audio.init();
     current = song;
     syncGame();
@@ -288,7 +301,7 @@
       const tags = [];
       if (!locked && id === l.id) tags.push('Ľ');
       if (!locked && id === r.id) tags.push('P');
-      el.querySelector('.badge').textContent = locked ? '🔒' : tags.join(' ');
+      el.querySelector('.badge').textContent = locked ? '🔒' : isSick(id) ? '🤒' : tags.join(' ');
       el.classList.toggle('sel', tags.length > 0);
       el.querySelector('.hslot').innerHTML = locked ? `<span class="lock-price">${price(catPrice(cat))}</span>` : hungerBar(hungerOf(id));
       paintCat(el.querySelector('canvas'), cat, 84, outfitOf(id), 'full', { sad: !locked && hungerOf(id) < 25 });
@@ -312,11 +325,15 @@
     const cat = catById(detailId);
     $('#cat-title').textContent = cat.name;
     const locked = !ownsCat(cat.id);
-    for (const sel of ['#cat-hunger', '.assign', '#cat-tabs', '#cat-panel', '#btn-rename']) $(sel).classList.toggle('hidden', locked);
+    const sickNow = !locked && isSick(cat.id);
+    for (const sel of ['#cat-hunger', '.assign', '#cat-tabs', '#cat-panel']) $(sel).classList.toggle('hidden', locked || sickNow);
+    $('#btn-rename').classList.toggle('hidden', locked);
     $('#cat-buy').classList.toggle('hidden', !locked);
+    $('#cat-sick').classList.toggle('hidden', !sickNow);
+    if (sickNow) { renderSickDetail(cat); return; }
     if (locked) {
       const p = catPrice(cat);
-      $('#cat-buy-text').innerHTML = `🔒 <b></b> je zamknutá – ${catTier(p)}. Kúp si ju a môže s tebou spievať, učiť sa aj nosiť oblečenie.`;
+      $('#cat-buy-text').innerHTML = `🔒 <b></b> je ${gx(cat, 'zamknutý', 'zamknutá', 'zamknuté')} – ${catTier(p)}. Kúp si ${gx(cat, 'ho', 'ju', 'ho')} a môže s tebou spievať, učiť sa aj nosiť oblečenie.`;
       $('#cat-buy-text b').textContent = cat.name;
       const b = $('#btn-buy-cat');
       b.innerHTML = `Kúpiť za ${price(p)}`;
@@ -375,7 +392,7 @@
     store.coins -= p;
     unlockCat(cat.id);
     updateWallets();
-    toast(`${cat.name} je teraz tvoja! 🎉`);
+    toast(`${cat.name} je teraz ${gx(cat, 'tvoj', 'tvoja', 'tvoje')}! 🎉`);
     audio.preview(cat.voice, 79);
     stage.chew = 0.6;
     renderCatDetail();
@@ -383,7 +400,7 @@
 
   function assign(side) {
     const id = detailId;
-    if (!ownsCat(id)) return;
+    if (!ownsCat(id) || isSick(id)) return;
     const key = side === 0 ? 'catL' : 'catR';
     const other = side === 0 ? 'catR' : 'catL';
     if (store[other] === id) store[other] = store[key]; // vymeniť mačky
@@ -451,7 +468,7 @@
   }
 
   function renderFeed(cat, panel) {
-    const foods = FOODS.filter(f => (store.pantry[f.id] || 0) > 0);
+    const foods = FOODS.filter(f => f.kind !== 'med' && (store.pantry[f.id] || 0) > 0);
     if (!foods.length) {
       panel.append(emptyBox('Špajza je prázdna. Jedlo kúpiš v obchode za body z pesničiek.', '🛒 Kúpiť jedlo'));
       shopTab = 'food';
@@ -484,7 +501,7 @@
     // plná mačka: prvé ťuknutie len upozorní, druhé ju prekŕmi
     if (v >= 95 && (overfeedAsk.id !== cat.id || Date.now() - overfeedAsk.t > 4000)) {
       overfeedAsk = { id: cat.id, t: Date.now() };
-      toast(`${cat.name} je plná. Ťukni znova a priberie 🐷`);
+      toast(`${cat.name} je ${gx(cat, 'plný', 'plná', 'plné')}. Ťukni znova a priberie 🐷`);
       return;
     }
     store.pantry[food.id]--;
@@ -495,8 +512,8 @@
       const before = weightOf(fatOf(cat.id)).cls;
       setFat(cat.id, fatOf(cat.id) + extra * FAT_GAIN);
       const after = weightOf(fatOf(cat.id));
-      if (after.cls !== before) toast(`${cat.name} pribrala – je ${after.label.toLowerCase().replace('!', '')}!`);
-      else toast(`${cat.name} je prejedená a priberá…`);
+      if (after.cls !== before) toast(`${cat.name} ${gx(cat, 'pribral', 'pribrala', 'pribralo')}! 🐷`);
+      else toast(`${cat.name} je ${gx(cat, 'prejedený', 'prejedená', 'prejedené')} a priberá…`);
     }
     save();
     syncGame();
@@ -602,6 +619,7 @@
       mouth: chewing ? 0.35 + 0.35 * Math.sin(stage.t * 20) : 0,
       blink: !chewing && (stage.t % 3.2) < 0.12,
       sad: hungry && !chewing,
+      sick: isSick(cat.id),
       look: Math.sin(stage.t * 0.8) * 0.5,
     });
     for (const p of stage.hearts) {
@@ -666,7 +684,7 @@
       paintCat(card.querySelector('canvas'), cat, 64, outfitOf(cat.id), 'full', { noBed: true });
       card.append(buyButton(cost, () => {
         unlockCat(cat.id);
-        toast(`${cat.name} je teraz tvoja! 🎉`);
+        toast(`${cat.name} je teraz ${gx(cat, 'tvoj', 'tvoja', 'tvoje')}! 🎉`);
         audio.preview(cat.voice, 79);
         renderShop();
       }));
@@ -713,11 +731,12 @@
       const h = document.createElement('h3');
       h.className = 'shop-h';
       h.textContent = grp.name;
+      if (grp.id) h.id = 'shop-' + grp.id;
       list.append(h);
       for (const f of FOODS.filter(x => grp.kinds.includes(x.kind))) {
         const card = document.createElement('div');
         card.className = 'shop-card';
-        card.innerHTML = `<canvas></canvas><div class="sc-main"><div class="sc-name"></div><div class="sc-sub">+${f.fill} % sýtosti · v špajzi: <b>${store.pantry[f.id] || 0}</b></div></div>`;
+        card.innerHTML = `<canvas></canvas><div class="sc-main"><div class="sc-name"></div><div class="sc-sub">${f.kind === 'med' ? '' : `+${f.fill} % sýtosti · `}v špajzi: <b>${store.pantry[f.id] || 0}</b></div></div>`;
         card.querySelector('.sc-name').textContent = f.name;
         paintFood(card.querySelector('canvas'), f, 64);
         card.append(buyButton(f.price, () => {
@@ -813,10 +832,10 @@
   $('#btn-restart').addEventListener('click', () => { game.quit(); startSong(current); });
   $('#btn-quit').addEventListener('click', () => { game.quit(); go('menu'); });
 
-  // ---------- Limit: 6 minút zapnutej aplikácie, potom úloha ----------
+  // ---------- Limit: 10 minút zapnutej aplikácie, potom úloha ----------
   // Úloha = 4 príklady (sčítanie/odčítanie do 20) a potom 1× nastaviť ručičkové hodiny.
   // Všetkých 5 musí byť správne, inak prídu nové úlohy.
-  const LIMIT_MIN = 6;
+  const LIMIT_MIN = 10;
   const QUIZ_LEN = 4;
   const CLOCK_LEN = 1;
   const TASK_TOTAL = QUIZ_LEN + CLOCK_LEN;
@@ -1361,7 +1380,13 @@
       b.querySelector('.iq-txt').textContent = `IQ ${v}`;
       b.querySelector('.iqbar i').style.width = Math.max(2, (v / IQ_MAX) * 100) + '%';
       paintCat(b.querySelector('canvas'), cat, 84, outfitOf(cat.id), 'full');
-      b.addEventListener('click', () => { audio.init(); audio.blip(); if (dictMode) startDictation(cat.id); else if (pvMode) startPrvouka(cat.id); else startLesson(cat.id); });
+      if (isSick(cat.id)) b.classList.add('sickcard');
+      b.addEventListener('click', () => {
+        audio.init();
+        if (isSick(cat.id)) { audio.miss(audio.ui); toast('🤒'); return; }
+        audio.blip();
+        if (dictMode) startDictation(cat.id); else if (pvMode) startPrvouka(cat.id); else startLesson(cat.id);
+      });
       grid.append(b);
     }
   }
@@ -2431,6 +2456,11 @@
     amt.innerHTML = '';
     ok.disabled = false;
     ok.textContent = 'OK';
+    const actions = $('#rw-actions');
+    actions.innerHTML = '';
+    actions.classList.add('hidden');
+    if ((r.kind === 'sick' || r.kind === 'care') && !isSick(r.id)) { rewardCur = null; showNextReward(); return; }
+    if (r.kind === 'care' && !careDue(r.id)) { rewardCur = null; showNextReward(); return; }
     if (r.kind === 'daily') {
       $('#rw-icon').textContent = '🌞';
       $('#rw-title').textContent = 'Denný bonus';
@@ -2448,6 +2478,79 @@
       cv.classList.remove('hidden');
       const model = catById(store.catL);
       paintCat(cv, model, 150, Object.assign({}, outfitOf(model.id), { [r.it.slot]: parseVariant(r.k) }), r.it.slot === 'bed' ? 'full' : 'full', { noBed: r.it.slot !== 'bed' });
+    } else if (r.kind === 'sick') {
+      const cat = catById(r.id);
+      $('#rw-icon').textContent = '🤒';
+      $('#rw-title').textContent = `${cat.name} ${gx(cat, 'ochorel', 'ochorela', 'ochorelo')}!`;
+      cv.classList.remove('hidden');
+      paintCat(cv, cat, 150, outfitOf(cat.id), 'full', { sick: true, t: 1 });
+      const healthy = healthyCats();
+      if (healthy.length === 1) {
+        rewardPick = healthy[0].id;
+        $('#rw-text').textContent = `${healthy[0].name} sa o ${gx(cat, 'neho', 'ňu', 'neho')} postará.`;
+      } else {
+        $('#rw-text').textContent = `Kto sa o ${gx(cat, 'neho', 'ňu', 'neho')} postará?`;
+        grid.classList.remove('hidden');
+        ok.disabled = true;
+        for (const hc of healthy) {
+          const b = document.createElement('button');
+          b.className = 'cat-card';
+          b.innerHTML = '<canvas></canvas><span class="cat-name"></span>';
+          b.querySelector('.cat-name').textContent = hc.name;
+          paintCat(b.querySelector('canvas'), hc, 70, outfitOf(hc.id), 'full', { noBed: true });
+          b.addEventListener('click', () => {
+            audio.init();
+            rewardPick = hc.id;
+            $$('#rw-grid .cat-card').forEach(x => x.classList.toggle('sel', x === b));
+            ok.disabled = false;
+            audio.preview(hc.voice, 76);
+          });
+          grid.append(b);
+        }
+      }
+      const med = document.createElement('button');
+      med.className = 'btn soft';
+      med.textContent = '💊 Kúpiť liek';
+      med.addEventListener('click', () => {
+        audio.init();
+        const sk = store.sick[r.id];
+        if (sk) sk.carer = rewardPick || healthy[0].id;
+        save();
+        closeReward();
+        goBuyMed();
+      });
+      actions.append(med);
+      actions.classList.remove('hidden');
+    } else if (r.kind === 'care') {
+      const cat = catById(r.id), sk = store.sick[r.id];
+      $('#rw-icon').textContent = '🍲';
+      $('#rw-title').textContent = `${cat.name} je ${gx(cat, 'hladný a smädný', 'hladná a smädná', 'hladné a smädné')}`;
+      $('#rw-text').innerHTML = '';
+      const who = document.createElement('p');
+      who.className = 'rw-who';
+      who.textContent = `${catById(sk.carer).name} ➜ ${cat.name}`;
+      cv.classList.remove('hidden');
+      paintCat(cv, cat, 140, outfitOf(cat.id), 'full', { sick: true, t: 1 });
+      const fill = () => {
+        actions.innerHTML = '';
+        actions.append(who, careButtons(r.id, () => {
+          if (!careDue(r.id)) { save(); closeReward(); if (screen === 'cat') renderCatDetail(); showNextReward(); return; }
+          fill();
+        }));
+      };
+      fill();
+      actions.classList.remove('hidden');
+    } else if (r.kind === 'healed') {
+      const cat = catById(r.id);
+      $('#rw-icon').textContent = '🎉';
+      $('#rw-title').textContent = `${cat.name} ${gx(cat, 'vyzdravel', 'vyzdravela', 'vyzdravelo')}!`;
+      $('#rw-text').textContent = '';
+      cv.classList.remove('hidden');
+      paintCat(cv, cat, 150, outfitOf(cat.id), 'full', { sick: false, t: 1, noBed: true });
+    } else if (r.kind === 'block') {
+      $('#rw-icon').textContent = '🤒';
+      $('#rw-title').textContent = 'Hrať sa môžeš, až keď mačička vyzdravie.';
+      $('#rw-text').textContent = '';
     } else if (r.kind === 'cat') {
       $('#rw-icon').textContent = '🐱';
       $('#rw-title').textContent = 'Mačička zadarmo';
@@ -2481,12 +2584,29 @@
     if (r.kind === 'daily') {
       store.coins += DAILY_BONUS;
       store.bonusDay = dayKey();
+    } else if (r.kind === 'sick') {
+      if (!rewardPick) return;
+      const sk = store.sick[r.id];
+      if (sk) sk.carer = rewardPick;
+      save();
+      closeReward();
+      if (screen === 'cat') renderCatDetail();
+      if (sk && careDue(r.id)) maybePromptCare(r.id);
+      showNextReward();
+      return;
+    } else if (r.kind === 'care' || r.kind === 'block' || r.kind === 'healed') {
+      closeReward();
+      if (screen === 'cat') renderCatDetail();
+      if (screen === 'cats') updateCatUI();
+      syncGame();
+      showNextReward();
+      return;
     } else if (r.kind === 'cat') {
       if (!rewardPick) return;
       unlockCat(rewardPick);
       store.learn.cat -= LEARN_CAT_EVERY;
       store.learn.catDay = dayKey();
-      toast(`${catById(rewardPick).name} je teraz tvoja! 🎉`);
+      toast(`${catById(rewardPick).name} je teraz ${gx(catById(rewardPick), 'tvoj', 'tvoja', 'tvoje')}! 🎉`);
     }
     audio.preview(chosenCats()[0].voice, 81);
     save();
@@ -2497,7 +2617,231 @@
     if (screen === 'cats') updateCatUI();
     showNextReward();
   });
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) { checkDaily(); checkRewards(); } });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { checkDaily(); checkRewards(); rollSickness(); sickTick(); } });
+
+  // ---------- Choroba mačičiek ----------
+  // Každá mačička môže ochorieť najviac 1× za mesiac (nemusí vôbec), vždy ostane aspoň jedna zdravá.
+  // Choroba trvá 3 dni, liek ju skráti na polovicu. Deň má 2 časti (do 14:00 a po 14:00) –
+  // v každej musí opatrovateľka dať chorej mačičke jesť aj piť (zo špajze). Keď sa to niektorý deň
+  // nestihne, choroba sa predĺži o 1 deň. Chorá mačička nemôže spievať ani sa učiť.
+  const SICK_DAYS = 3;
+  const SICK_P = 0.02;          // šanca za deň pre každú mačičku (asi polovica mačičiek za mesiac)
+  const CARE_SPLIT_H = 14;
+  const HOUR = 3600000, DAY_MS = 24 * HOUR;
+  if (!store.sick || typeof store.sick !== 'object') store.sick = {};
+  if (!store.sickMonth || typeof store.sickMonth !== 'object') store.sickMonth = {};
+  const monthKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  const nextDay = k => { const [y, m, d] = k.split('-').map(Number); return dayKey(new Date(y, m - 1, d + 1)); };
+  const sickEnd = s => s.start + (s.base * (s.med ? 0.5 : 1) + s.ext * 24) * HOUR;
+  function slotOf(ts) { const d = new Date(ts); return { day: dayKey(d), part: d.getHours() < CARE_SPLIT_H ? 'm' : 'e' }; }
+  function slotRange(day, part) {
+    const [y, m, d] = day.split('-').map(Number);
+    const s0 = new Date(y, m - 1, d).getTime();
+    return part === 'm' ? [s0, s0 + CARE_SPLIT_H * HOUR] : [s0 + CARE_SPLIT_H * HOUR, s0 + DAY_MS];
+  }
+  const slotCare = (s, day, part) => ((s.care[day] || {})[part]) || { f: false, d: false };
+  const slotDone = (s, day, part) => { const c = slotCare(s, day, part); return c.f && c.d; };
+  function slotRequired(s, day, part) { const [a, b] = slotRange(day, part); return b > s.start && a < sickEnd(s); }
+  function careDue(id) {
+    const s = store.sick[id];
+    if (!s) return false;
+    const { day, part } = slotOf(Date.now());
+    return slotRequired(s, day, part) && !slotDone(s, day, part);
+  }
+  const healthyCats = () => ownedCats().filter(c => !isSick(c.id));
+
+  /** Za každý uplynulý deň, keď nedostala 2× jesť a piť, sa choroba predĺži o 1 deň. */
+  function sickEvaluate(id) {
+    const s = store.sick[id];
+    const today = dayKey();
+    let d = s.evalDay ? nextDay(s.evalDay) : dayKey(new Date(s.start));
+    while (d < today) {
+      if (['m', 'e'].some(p => slotRequired(s, d, p) && !slotDone(s, d, p))) s.ext += 1;
+      s.evalDay = d;
+      d = nextDay(d);
+    }
+  }
+
+  /** Keď spieva chorá mačička, nahradí ju zdravá (ak sú aspoň 2 zdravé). */
+  function fixSingers() {
+    const healthy = healthyCats();
+    if (healthy.length < 2) return false;
+    for (const key of ['catL', 'catR']) {
+      if (!isSick(store[key])) continue;
+      const other = key === 'catL' ? store.catR : store.catL;
+      const pick = healthy.find(c => c.id !== other && !isSick(c.id));
+      if (pick) store[key] = pick.id;
+    }
+    save();
+    syncGame();
+    return !isSick(store.catL) && !isSick(store.catR);
+  }
+  const singersReady = () => (!isSick(store.catL) && !isSick(store.catR)) || fixSingers();
+
+  function makeSick(id) {
+    store.sick[id] = { start: Date.now(), base: SICK_DAYS * 24, med: false, ext: 0, carer: null, care: {}, evalDay: '', prompted: '', promptAt: 0 };
+    store.sickMonth[id] = monthKey();
+    fixSingers();
+    save();
+    queueReward({ kind: 'sick', id });
+  }
+
+  /** Raz denne sa môže stať, že niektorá mačička ochorie. */
+  function rollSickness() {
+    const today = dayKey();
+    if (store.sickRollDay === today) return;
+    store.sickRollDay = today;
+    save();
+    if (store.cats.length < 2 || store.startDay === today) return;
+    const healthy = healthyCats();
+    if (healthy.length < 2) return; // vždy musí ostať aspoň jedna zdravá
+    const carers = new Set(Object.values(store.sick).map(s => s.carer));
+    const cand = shuffle(healthy.filter(c => store.sickMonth[c.id] !== monthKey() && !carers.has(c.id)));
+    for (const c of cand) if (Math.random() < SICK_P) { makeSick(c.id); break; }
+  }
+
+  function maybePromptCare(id) {
+    const s = store.sick[id];
+    const { day, part } = slotOf(Date.now());
+    const key = day + part;
+    if (s.prompted === key && Date.now() - (s.promptAt || 0) < 30 * 60000) return;
+    if (rewardQueue.some(r => r.kind === 'care' && r.id === id) || (rewardCur && rewardCur.kind === 'care' && rewardCur.id === id)) return;
+    s.prompted = key;
+    s.promptAt = Date.now();
+    queueReward({ kind: 'care', id });
+  }
+
+  function sickTick() {
+    for (const id of Object.keys(store.sick)) {
+      if (!ownsCat(id)) { delete store.sick[id]; continue; }
+      sickEvaluate(id);
+      const s = store.sick[id];
+      if (Date.now() >= sickEnd(s)) {
+        delete store.sick[id];
+        queueReward({ kind: 'healed', id });
+        continue;
+      }
+      if (!s.carer || !ownsCat(s.carer) || isSick(s.carer)) {
+        s.carer = null;
+        const waiting = rewardQueue.some(r => r.kind === 'sick' && r.id === id) || (rewardCur && rewardCur.kind === 'sick' && rewardCur.id === id);
+        if (!waiting) queueReward({ kind: 'sick', id });
+      } else if (careDue(id)) maybePromptCare(id);
+    }
+    save();
+    showNextReward();
+    if (screen === 'cat') renderCatDetail();
+    if (screen === 'cats') updateCatUI();
+  }
+
+  const careFood = () => FOODS.find(f => f.kind !== 'milk' && f.kind !== 'med' && (store.pantry[f.id] || 0) > 0);
+  const careDrink = () => FOODS.find(f => f.kind === 'milk' && (store.pantry[f.id] || 0) > 0);
+  function giveCare(id, what) {
+    const s = store.sick[id];
+    if (!s) return null;
+    const item = what === 'f' ? careFood() : careDrink();
+    if (!item) return null;
+    store.pantry[item.id]--;
+    if (!store.pantry[item.id]) delete store.pantry[item.id];
+    const { day, part } = slotOf(Date.now());
+    s.care[day] = s.care[day] || {};
+    s.care[day][part] = Object.assign(slotCare(s, day, part), { [what]: true });
+    setHunger(id, Math.min(100, hungerOf(id) + item.fill));
+    save();
+    syncGame();
+    return item;
+  }
+  function giveMed(id) {
+    const s = store.sick[id];
+    if (!s || s.med || !(store.pantry.med > 0)) return false;
+    store.pantry.med--;
+    if (!store.pantry.med) delete store.pantry.med;
+    s.med = true;
+    save();
+    return true;
+  }
+  function sickLeftText(id) {
+    const hours = Math.ceil(Math.max(0, sickEnd(store.sick[id]) - Date.now()) / HOUR);
+    const d = Math.floor(hours / 24), h = hours % 24;
+    return `🤒 ${d ? d + ' d' : ''}${d && h ? ' ' : ''}${h || !d ? h + ' h' : ''}`;
+  }
+  function goBuyMed() {
+    shopTab = 'food';
+    go('shop');
+    const h = $('#shop-med');
+    if (h) h.scrollIntoView({ block: 'start' });
+  }
+
+  /** Tlačidlá Jesť / Piť / Liek / Obchod pre chorú mačičku (v okne aj v detaile mačky). */
+  function careButtons(id, onChange) {
+    const box = document.createElement('div');
+    box.className = 'care-btns';
+    const s = store.sick[id];
+    const { day, part } = slotOf(Date.now());
+    const c = slotCare(s, day, part);
+    const mk = (label, cls, fn, disabled) => {
+      const b = document.createElement('button');
+      b.className = 'btn ' + cls;
+      b.textContent = label;
+      b.disabled = !!disabled;
+      b.addEventListener('click', () => { audio.init(); fn(); });
+      box.append(b);
+      return b;
+    };
+    const cat = catById(id);
+    const act = what => {
+      const item = giveCare(id, what);
+      if (!item) return;
+      audio.preview(cat.voice, 70);
+      if (slotDone(s, day, part)) toast('❤️');
+      onChange();
+    };
+    mk(c.f ? '✓ 🍗' : '🍗 Jesť', c.f ? 'done' : 'soft', () => act('f'), c.f || !careFood());
+    mk(c.d ? '✓ 🥛' : '🥛 Piť', c.d ? 'done' : 'soft', () => act('d'), c.d || !careDrink());
+    if (!s.med && store.pantry.med > 0) mk('💊 Liek', 'primary', () => { if (giveMed(id)) { audio.preview(cat.voice, 76); toast('💊'); onChange(); } });
+    if (!careFood() || !careDrink() || !s.med) mk('🛒', 'soft', () => { closeReward(); goBuyMed(); });
+    return box;
+  }
+
+  function closeReward() {
+    rewardCur = null;
+    $('#reward').classList.add('hidden');
+  }
+
+  /** Detail chorej mačičky: zostávajúci čas, opatrovateľka a starostlivosť. */
+  function renderSickDetail(cat) {
+    const box = $('#cat-sick');
+    const s = store.sick[cat.id];
+    box.innerHTML = '';
+    const tm = document.createElement('div');
+    tm.className = 'sick-time';
+    tm.textContent = sickLeftText(cat.id);
+    box.append(tm);
+    const healthy = healthyCats();
+    if (s.carer) {
+      const row = document.createElement('div');
+      row.className = 'sick-carer';
+      const cv = document.createElement('canvas');
+      const nm = document.createElement('span');
+      nm.textContent = catById(s.carer).name;
+      paintCat(cv, catById(s.carer), 54, outfitOf(s.carer), 'head', { noBed: true });
+      row.append(cv, nm);
+      if (healthy.length > 1) {
+        const b = document.createElement('button');
+        b.className = 'btn small soft';
+        b.textContent = '🔄';
+        b.addEventListener('click', () => {
+          const i = healthy.findIndex(c => c.id === s.carer);
+          s.carer = healthy[(i + 1) % healthy.length].id;
+          audio.blip();
+          save();
+          renderCatDetail();
+        });
+        row.append(b);
+      }
+      box.append(row);
+      box.append(careButtons(cat.id, () => renderCatDetail()));
+    }
+  }
 
   // ---------- Výsledok ----------
   game.onEnd = r => {
@@ -2519,7 +2863,7 @@
       if (before <= 0) return;
       const loss = Math.min(FAT_SONG_MAX, ((r.moved && r.moved[i]) || 0) * FAT_PER_MOVE);
       setFat(c.id, before - loss);
-      slim.push({ name: c.name, before, after: fatOf(c.id) });
+      slim.push({ name: c.name, cat: c, before, after: fatOf(c.id) });
     });
     save();
     syncGame();
@@ -2550,9 +2894,10 @@
       const d = document.createElement('small');
       d.className = 'res-slim';
       const lost = Math.round(s.before) - Math.round(s.after);
-      d.textContent = s.after < 0.5 ? `🏃 ${s.name} úplne schudla!` :
-        lost > 0 ? `🏃 ${s.name} schudla: váha ${Math.round(s.before)} → ${Math.round(s.after)}` :
-          `🐷 ${s.name} sa málo hýbala, váha ${Math.round(s.after)}`;
+      const sch = gx(s.cat, 'schudol', 'schudla', 'schudlo');
+      d.textContent = s.after < 0.5 ? `🏃 ${s.name} úplne ${sch}!` :
+        lost > 0 ? `🏃 ${s.name} ${sch}: váha ${Math.round(s.before)} → ${Math.round(s.after)}` :
+          `🐷 ${s.name} sa málo ${gx(s.cat, 'hýbal', 'hýbala', 'hýbalo')}, váha ${Math.round(s.after)}`;
       $('#res-earn').append(d);
     }
     show('result');
@@ -2603,6 +2948,7 @@
     for (const id of welcomePick) unlockCat(id);
     store.catL = welcomePick[0];
     store.catR = welcomePick[1];
+    store.startDay = dayKey();
     shopModel = store.catL;
     detailId = store.catL;
     save();
@@ -2616,7 +2962,8 @@
   renderStats();
   checkDaily();
   if (store.cats.length < 2) { renderWelcome(); show('welcome'); }
-  else { show('menu'); checkRewards(); }
+  else { show('menu'); checkRewards(); rollSickness(); sickTick(); }
+  setInterval(() => { rollSickness(); sickTick(); }, 60000);
 
   // ---------- Aktualizácie a inštalácia na plochu ----------
   // Service worker: hra ide aj offline, online sa vždy načíta najnovšia verzia.
@@ -2655,5 +3002,5 @@
   window.addEventListener('pageshow', e => { if (e.persisted) checkForUpdate(); });
 
   // Prístup pre ladenie z konzoly prehliadača (napr. macaciZbor.store.coins)
-  window.macaciZbor = { game, audio, store, save, syncGame, limitState: () => ({ task, quiz, clk, lesson, dict, pv }) };
+  window.macaciZbor = { game, audio, store, save, syncGame, limitState: () => ({ task, quiz, clk, lesson, dict, pv }), sickTest: { makeSick, sickTick, giveCare, giveMed, sickEnd, careDue } };
 })();

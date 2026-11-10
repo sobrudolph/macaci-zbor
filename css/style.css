@@ -977,3 +977,27 @@ kbd {
 .rw-grid .cat-card.sel { border-color: var(--accent2); background: #e3dbff; }
 #btn-rw-ok { width: 100%; }
 #btn-rw-ok:disabled { opacity: .55; }
+
+/* ---------- Choroba mačičky ---------- */
+.cat-sick {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(255, 255, 255, .12);
+  border-radius: 16px;
+  padding: 12px;
+}
+.sick-time { text-align: center; font-weight: 700; font-size: 20px; color: #ffd1d8; }
+.sick-carer { display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: 700; }
+.sick-carer canvas { flex: none; }
+.sick-carer .btn { flex: none; }
+.care-btns { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 8px; width: 100%; }
+.care-btns .btn { font-size: 17px; padding: 11px 8px; }
+.care-btns .btn.done { background: #5cc16a; color: #fff; }
+.care-btns .btn:disabled { opacity: .5; }
+.rw-actions { width: 100%; }
+.rw-actions.hidden { display: none; }
+.rw-who { margin: 0; font-weight: 700; color: var(--accent2); }
+.cat-card.sickcard canvas { opacity: .8; }
+.cat-card.sickcard { border-color: rgba(255, 140, 160, .6); }

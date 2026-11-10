@@ -8,36 +8,37 @@
  *          chef | wizard | pirate | halo | cap | leaf | antenna | star | heart
  * voice:   wave = sawtooth (jasný) | square (nosový) | triangle (jemný), formant = "veľkosť" hlasu
  */
+// g = gramatický rod mena ('m' = on, 'f' = ona, 'n' = ono) – podľa neho sa píšu vety (ochorel/ochorela…)
 const CATS = [
-  { id: 'mica', name: 'Mica', body: '#a9afbd', belly: '#e6e9ef', pattern: 'solid', eye: '#58b368', voice: { wave: 'sawtooth', formant: 1.0 } },
-  { id: 'rysavec', name: 'Ryšavec', body: '#f5a14a', belly: '#ffe0b8', pattern: 'tabby', pc: '#d8742a', eye: '#6aa84f', voice: { wave: 'sawtooth', formant: 1.05 } },
-  { id: 'elza', name: 'Elza', body: '#fbfbfd', belly: '#ffffff', pattern: 'solid', eye: '#5aa6e8', acc: 'braid', accColor: '#ffe08a', wear: { body: 'dress:pink' }, voice: { wave: 'triangle', formant: 1.3 } },
-  { id: 'murko', name: 'Murko', body: '#3a3640', belly: '#57525e', pattern: 'solid', eye: '#f5c84c', acc: 'bell', accColor: '#e0475b', voice: { wave: 'square', formant: 0.9 } },
-  { id: 'snehulka', name: 'Snehulka', body: '#fbfbfd', belly: '#ffffff', pattern: 'solid', eye: '#5aa6e8', acc: 'bow', accColor: '#ff7eb6', voice: { wave: 'triangle', formant: 1.2 } },
-  { id: 'fliacik', name: 'Fliačik', body: '#fdf6ee', belly: '#ffffff', pattern: 'calico', eye: '#8bc34a', acc: 'flower', accColor: '#ff9fc6', voice: { wave: 'sawtooth', formant: 1.1 } },
-  { id: 'siam', name: 'Siam', body: '#f3e3c8', belly: '#fbf1e0', pattern: 'siamese', pc: '#5b3d2e', eye: '#4fa3e0', voice: { wave: 'triangle', formant: 1.0 } },
-  { id: 'smoking', name: 'Pán Smoking', body: '#2f2b35', pattern: 'tuxedo', eye: '#9ad35b', acc: 'tophat', accColor: '#25222b', voice: { wave: 'square', formant: 0.85 } },
-  { id: 'kapitan', name: 'Kapitán Packa', body: '#f08c3c', belly: '#ffd9b0', pattern: 'tabby', pc: '#c9692a', eye: '#f5c84c', acc: 'pirate', accColor: '#e0475b', voice: { wave: 'sawtooth', formant: 0.9 } },
-  { id: 'kuchar', name: 'Kuchár Mňam', body: '#b9bcc6', belly: '#eceef2', pattern: 'tabby', pc: '#8a8e9b', eye: '#58b368', acc: 'chef', accColor: '#ffffff', voice: { wave: 'triangle', formant: 1.0 } },
-  { id: 'mrrlin', name: 'Mrrlin', body: '#8b74d9', belly: '#c9bdf2', pattern: 'solid', eye: '#ffd34d', acc: 'wizard', accColor: '#3f4fc4', voice: { wave: 'square', formant: 1.1 } },
-  { id: 'ruzka', name: 'Princezná Ružka', body: '#f8b3cb', belly: '#ffe3ee', pattern: 'solid', eye: '#7b5bd6', acc: 'crown', accColor: '#ffd34d', voice: { wave: 'triangle', formant: 1.25 } },
-  { id: 'rocker', name: 'Rocker', body: '#2a2730', belly: '#4a4552', pattern: 'socks', eye: '#ff6b6b', acc: 'headphones', accColor: '#ff4f7b', voice: { wave: 'square', formant: 0.95 } },
-  { id: 'profesor', name: 'Profesor Fúzik', body: '#9c6b48', belly: '#e9d3bd', pattern: 'tabby', pc: '#6e4a30', eye: '#6aa84f', acc: 'glasses', accColor: '#3b2b3a', voice: { wave: 'sawtooth', formant: 0.85 } },
-  { id: 'basnik', name: 'Básnik', body: '#d9cfc1', belly: '#f4efe8', pattern: 'bicolor', pc: '#6f6a75', eye: '#5aa6e8', acc: 'beret', accColor: '#d6455d', voice: { wave: 'triangle', formant: 0.95 } },
-  { id: 'anjelik', name: 'Anjelik', body: '#fffaf2', belly: '#ffffff', pattern: 'solid', eye: '#7fb4ff', acc: 'halo', accColor: '#ffd34d', voice: { wave: 'triangle', formant: 1.3 } },
-  { id: 'duhovec', name: 'Dúhovec', body: '#fff7fb', pattern: 'rainbow', eye: '#7b5bd6', voice: { wave: 'sawtooth', formant: 1.15 } },
-  { id: 'kozmo', name: 'Kozmo', body: '#2d2560', belly: '#3d3478', pattern: 'galaxy', eye: '#7ff0ff', acc: 'antenna', accColor: '#7ff0ff', voice: { wave: 'square', formant: 1.2 } },
-  { id: 'matovka', name: 'Mätovka', body: '#9fe3c8', belly: '#e3fbf1', pattern: 'spots', pc: '#6cc7a4', eye: '#3e8f6b', acc: 'leaf', accColor: '#6fcf6f', voice: { wave: 'triangle', formant: 1.1 } },
-  { id: 'cokoladka', name: 'Čokoládka', body: '#7b4a2e', belly: '#b98563', pattern: 'solid', eye: '#ffcf5a', acc: 'scarf', accColor: '#ff8a3d', voice: { wave: 'sawtooth', formant: 0.9 } },
-  { id: 'medovka', name: 'Medovka', body: '#f2c14e', belly: '#fff1c7', pattern: 'tabby', pc: '#d39a24', eye: '#6aa84f', acc: 'bow', accColor: '#5aa6e8', voice: { wave: 'triangle', formant: 1.15 } },
-  { id: 'levandula', name: 'Levanduľa', body: '#c7b4f0', belly: '#efe8ff', pattern: 'solid', eye: '#6a4fc4', acc: 'flower', accColor: '#ffffff', voice: { wave: 'triangle', formant: 1.2 } },
-  { id: 'sportovec', name: 'Športovec', body: '#f4f4f6', belly: '#ffffff', pattern: 'bicolor', pc: '#444150', eye: '#58b368', acc: 'cap', accColor: '#2f86c9', voice: { wave: 'sawtooth', formant: 1.0 } },
-  { id: 'hviezdicka', name: 'Hviezdička', body: '#2e3a6e', belly: '#4a5899', pattern: 'spots', pc: '#ffd84d', eye: '#ffd84d', acc: 'star', accColor: '#ffd84d', voice: { wave: 'square', formant: 1.05 } },
-  { id: 'srdiecko', name: 'Srdiečko', body: '#ff9a8a', belly: '#ffe1db', pattern: 'solid', eye: '#c2185b', acc: 'heart', accColor: '#e0475b', voice: { wave: 'triangle', formant: 1.2 } },
-  { id: 'tigrik', name: 'Tigrík', body: '#f59a3a', belly: '#fff3e3', pattern: 'tiger', pc: '#3a2a2a', eye: '#9ad35b', voice: { wave: 'sawtooth', formant: 0.95 } },
-  { id: 'dalmatin', name: 'Dalmatín', body: '#ffffff', belly: '#ffffff', pattern: 'spots', pc: '#2b2730', eye: '#3b2b3a', acc: 'sunglasses', accColor: '#1d1d2b', voice: { wave: 'square', formant: 1.0 } },
-  { id: 'mracik', name: 'Mráčik', body: '#bfe3ff', belly: '#eef8ff', pattern: 'solid', eye: '#3f7fd6', acc: 'bell', accColor: '#5aa6e8', voice: { wave: 'triangle', formant: 1.25 } },
-  { id: 'uhlik', name: 'Uhlík', body: '#1f1c24', belly: '#2f2b35', pattern: 'solid', eye: '#b6f05a', acc: 'crown', accColor: '#c9ccd6', voice: { wave: 'square', formant: 0.85 } },
+  { id: 'mica', name: 'Mica', g: 'f', body: '#a9afbd', belly: '#e6e9ef', pattern: 'solid', eye: '#58b368', voice: { wave: 'sawtooth', formant: 1.0 } },
+  { id: 'rysavec', name: 'Ryšavec', g: 'm', body: '#f5a14a', belly: '#ffe0b8', pattern: 'tabby', pc: '#d8742a', eye: '#6aa84f', voice: { wave: 'sawtooth', formant: 1.05 } },
+  { id: 'elza', name: 'Elza', g: 'f', body: '#fbfbfd', belly: '#ffffff', pattern: 'solid', eye: '#5aa6e8', acc: 'braid', accColor: '#ffe08a', wear: { body: 'dress:pink' }, voice: { wave: 'triangle', formant: 1.3 } },
+  { id: 'murko', name: 'Murko', g: 'm', body: '#3a3640', belly: '#57525e', pattern: 'solid', eye: '#f5c84c', acc: 'bell', accColor: '#e0475b', voice: { wave: 'square', formant: 0.9 } },
+  { id: 'snehulka', name: 'Snehulka', g: 'f', body: '#fbfbfd', belly: '#ffffff', pattern: 'solid', eye: '#5aa6e8', acc: 'bow', accColor: '#ff7eb6', voice: { wave: 'triangle', formant: 1.2 } },
+  { id: 'fliacik', name: 'Fliačik', g: 'm', body: '#fdf6ee', belly: '#ffffff', pattern: 'calico', eye: '#8bc34a', acc: 'flower', accColor: '#ff9fc6', voice: { wave: 'sawtooth', formant: 1.1 } },
+  { id: 'siam', name: 'Siam', g: 'm', body: '#f3e3c8', belly: '#fbf1e0', pattern: 'siamese', pc: '#5b3d2e', eye: '#4fa3e0', voice: { wave: 'triangle', formant: 1.0 } },
+  { id: 'smoking', name: 'Pán Smoking', g: 'm', body: '#2f2b35', pattern: 'tuxedo', eye: '#9ad35b', acc: 'tophat', accColor: '#25222b', voice: { wave: 'square', formant: 0.85 } },
+  { id: 'kapitan', name: 'Kapitán Packa', g: 'm', body: '#f08c3c', belly: '#ffd9b0', pattern: 'tabby', pc: '#c9692a', eye: '#f5c84c', acc: 'pirate', accColor: '#e0475b', voice: { wave: 'sawtooth', formant: 0.9 } },
+  { id: 'kuchar', name: 'Kuchár Mňam', g: 'm', body: '#b9bcc6', belly: '#eceef2', pattern: 'tabby', pc: '#8a8e9b', eye: '#58b368', acc: 'chef', accColor: '#ffffff', voice: { wave: 'triangle', formant: 1.0 } },
+  { id: 'mrrlin', name: 'Mrrlin', g: 'm', body: '#8b74d9', belly: '#c9bdf2', pattern: 'solid', eye: '#ffd34d', acc: 'wizard', accColor: '#3f4fc4', voice: { wave: 'square', formant: 1.1 } },
+  { id: 'ruzka', name: 'Princezná Ružka', g: 'f', body: '#f8b3cb', belly: '#ffe3ee', pattern: 'solid', eye: '#7b5bd6', acc: 'crown', accColor: '#ffd34d', voice: { wave: 'triangle', formant: 1.25 } },
+  { id: 'rocker', name: 'Rocker', g: 'm', body: '#2a2730', belly: '#4a4552', pattern: 'socks', eye: '#ff6b6b', acc: 'headphones', accColor: '#ff4f7b', voice: { wave: 'square', formant: 0.95 } },
+  { id: 'profesor', name: 'Profesor Fúzik', g: 'm', body: '#9c6b48', belly: '#e9d3bd', pattern: 'tabby', pc: '#6e4a30', eye: '#6aa84f', acc: 'glasses', accColor: '#3b2b3a', voice: { wave: 'sawtooth', formant: 0.85 } },
+  { id: 'basnik', name: 'Básnik', g: 'm', body: '#d9cfc1', belly: '#f4efe8', pattern: 'bicolor', pc: '#6f6a75', eye: '#5aa6e8', acc: 'beret', accColor: '#d6455d', voice: { wave: 'triangle', formant: 0.95 } },
+  { id: 'anjelik', name: 'Anjelik', g: 'm', body: '#fffaf2', belly: '#ffffff', pattern: 'solid', eye: '#7fb4ff', acc: 'halo', accColor: '#ffd34d', voice: { wave: 'triangle', formant: 1.3 } },
+  { id: 'duhovec', name: 'Dúhovec', g: 'm', body: '#fff7fb', pattern: 'rainbow', eye: '#7b5bd6', voice: { wave: 'sawtooth', formant: 1.15 } },
+  { id: 'kozmo', name: 'Kozmo', g: 'm', body: '#2d2560', belly: '#3d3478', pattern: 'galaxy', eye: '#7ff0ff', acc: 'antenna', accColor: '#7ff0ff', voice: { wave: 'square', formant: 1.2 } },
+  { id: 'matovka', name: 'Mätovka', g: 'f', body: '#9fe3c8', belly: '#e3fbf1', pattern: 'spots', pc: '#6cc7a4', eye: '#3e8f6b', acc: 'leaf', accColor: '#6fcf6f', voice: { wave: 'triangle', formant: 1.1 } },
+  { id: 'cokoladka', name: 'Čokoládka', g: 'f', body: '#7b4a2e', belly: '#b98563', pattern: 'solid', eye: '#ffcf5a', acc: 'scarf', accColor: '#ff8a3d', voice: { wave: 'sawtooth', formant: 0.9 } },
+  { id: 'medovka', name: 'Medovka', g: 'f', body: '#f2c14e', belly: '#fff1c7', pattern: 'tabby', pc: '#d39a24', eye: '#6aa84f', acc: 'bow', accColor: '#5aa6e8', voice: { wave: 'triangle', formant: 1.15 } },
+  { id: 'levandula', name: 'Levanduľa', g: 'f', body: '#c7b4f0', belly: '#efe8ff', pattern: 'solid', eye: '#6a4fc4', acc: 'flower', accColor: '#ffffff', voice: { wave: 'triangle', formant: 1.2 } },
+  { id: 'sportovec', name: 'Športovec', g: 'm', body: '#f4f4f6', belly: '#ffffff', pattern: 'bicolor', pc: '#444150', eye: '#58b368', acc: 'cap', accColor: '#2f86c9', voice: { wave: 'sawtooth', formant: 1.0 } },
+  { id: 'hviezdicka', name: 'Hviezdička', g: 'f', body: '#2e3a6e', belly: '#4a5899', pattern: 'spots', pc: '#ffd84d', eye: '#ffd84d', acc: 'star', accColor: '#ffd84d', voice: { wave: 'square', formant: 1.05 } },
+  { id: 'srdiecko', name: 'Srdiečko', g: 'n', body: '#ff9a8a', belly: '#ffe1db', pattern: 'solid', eye: '#c2185b', acc: 'heart', accColor: '#e0475b', voice: { wave: 'triangle', formant: 1.2 } },
+  { id: 'tigrik', name: 'Tigrík', g: 'm', body: '#f59a3a', belly: '#fff3e3', pattern: 'tiger', pc: '#3a2a2a', eye: '#9ad35b', voice: { wave: 'sawtooth', formant: 0.95 } },
+  { id: 'dalmatin', name: 'Dalmatín', g: 'm', body: '#ffffff', belly: '#ffffff', pattern: 'spots', pc: '#2b2730', eye: '#3b2b3a', acc: 'sunglasses', accColor: '#1d1d2b', voice: { wave: 'square', formant: 1.0 } },
+  { id: 'mracik', name: 'Mráčik', g: 'm', body: '#bfe3ff', belly: '#eef8ff', pattern: 'solid', eye: '#3f7fd6', acc: 'bell', accColor: '#5aa6e8', voice: { wave: 'triangle', formant: 1.25 } },
+  { id: 'uhlik', name: 'Uhlík', g: 'm', body: '#1f1c24', belly: '#2f2b35', pattern: 'solid', eye: '#b6f05a', acc: 'crown', accColor: '#c9ccd6', voice: { wave: 'square', formant: 0.85 } },
 ];
 CATS.forEach((c, i) => { c.seed = i * 1.7; });
 
@@ -75,7 +76,9 @@ function heartPath(g, x, y, s) {
 }
 
 function rrPath(g, x, y, w, h, r) {
-  r = Math.min(r, w / 2, h / 2);
+  w = Math.max(0, w);
+  h = Math.max(0, h);
+  r = Math.max(0, Math.min(r, w / 2, h / 2)); // pri nulovej veľkosti plátna nesmie byť polomer záporný
   g.beginPath();
   g.moveTo(x + r, y);
   g.arcTo(x + w, y, x + w, y + h, r);
@@ -443,7 +446,82 @@ function catOutfit(cat, own) {
   return Object.assign({}, cat._wear || {}, own || {});
 }
 
+/*
+ * Chorá mačka (st.sick): leží v posteli pod perinou, má teplomer v puse, potí sa a má červené líca.
+ * Kreslí sa kódom pre KAŽDÚ mačku – aj pre mačky, ktoré pribudnú v budúcnosti, netreba nič dokresľovať.
+ */
+function drawSickBedBack(g) {
+  // čelo postele
+  rrPath(g, -60, -122, 120, 112, 16);
+  g.fillStyle = '#c98b5a'; g.fill(); g.lineWidth = 3; g.strokeStyle = OUT; g.stroke();
+  rrPath(g, -48, -110, 96, 50, 10);
+  g.fillStyle = '#e0a874'; g.fill();
+  // vankúš
+  ell(g, 0, -60, 52, 23);
+  g.fillStyle = '#ffffff'; g.fill(); g.lineWidth = 2.5; g.stroke();
+  g.strokeStyle = 'rgba(59,43,58,0.25)'; g.lineWidth = 1.5;
+  g.beginPath(); g.moveTo(-38, -66); g.quadraticCurveTo(-30, -58, -40, -50); g.moveTo(38, -66); g.quadraticCurveTo(30, -58, 40, -50); g.stroke();
+}
+
+function drawSickBlanket(g) {
+  g.save();
+  g.beginPath();
+  g.moveTo(-62, -34);
+  g.quadraticCurveTo(-32, -46, 0, -39);
+  g.quadraticCurveTo(32, -46, 62, -34);
+  g.lineTo(64, 6);
+  g.quadraticCurveTo(0, 14, -64, 6);
+  g.closePath();
+  g.fillStyle = '#8ec5ff'; g.fill();
+  g.save(); g.clip();
+  g.fillStyle = 'rgba(255,255,255,0.55)';
+  for (let yy = -30; yy < 10; yy += 12) for (let xx = -60 + ((yy / 12) % 2 ? 6 : 0); xx < 64; xx += 13) { circ(g, xx, yy, 2.4); g.fill(); }
+  // biely lem
+  g.beginPath();
+  g.moveTo(-62, -34); g.quadraticCurveTo(-32, -46, 0, -39); g.quadraticCurveTo(32, -46, 62, -34);
+  g.lineTo(62, -24); g.quadraticCurveTo(32, -36, 0, -29); g.quadraticCurveTo(-32, -36, -62, -24); g.closePath();
+  g.fillStyle = '#ffffff'; g.fill();
+  g.restore();
+  g.beginPath();
+  g.moveTo(-62, -34); g.quadraticCurveTo(-32, -46, 0, -39); g.quadraticCurveTo(32, -46, 62, -34);
+  g.lineTo(64, 6); g.quadraticCurveTo(0, 14, -64, 6); g.closePath();
+  g.lineWidth = 3; g.strokeStyle = OUT; g.stroke();
+  g.restore();
+}
+
+function drawSickFace(g, t) {
+  // červené líca (horúčka)
+  g.fillStyle = 'rgba(255,70,90,0.55)';
+  ell(g, -19, -53, 6.5, 4); g.fill();
+  ell(g, 19, -53, 6.5, 4); g.fill();
+  // teplomer v puse
+  g.lineCap = 'round';
+  g.strokeStyle = OUT; g.lineWidth = 6.5;
+  g.beginPath(); g.moveTo(1, -50); g.lineTo(31, -37); g.stroke();
+  g.strokeStyle = '#eef2f7'; g.lineWidth = 4;
+  g.beginPath(); g.moveTo(1, -50); g.lineTo(31, -37); g.stroke();
+  g.strokeStyle = '#e0283c'; g.lineWidth = 1.8;
+  g.beginPath(); g.moveTo(3, -49); g.lineTo(15, -44); g.stroke();
+  g.fillStyle = '#7a2438'; ell(g, 0, -50.5, 3.6, 3); g.fill();
+  g.fillStyle = '#e0283c'; circ(g, 1, -50, 2.2); g.fill();
+  // kvapky potu
+  for (const [dx, dy, ph] of [[-27, -80, 0], [27, -84, 0.5], [-31, -66, 0.25]]) {
+    const k = ((t * 0.6 + ph) % 1);
+    const y = dy + k * 8;
+    g.globalAlpha = 1 - k * 0.6;
+    g.beginPath();
+    g.moveTo(dx, y - 6);
+    g.quadraticCurveTo(dx + 4.5, y + 1, dx, y + 3);
+    g.quadraticCurveTo(dx - 4.5, y + 1, dx, y - 6);
+    g.fillStyle = '#7cc6ff'; g.fill();
+    g.lineWidth = 1.2; g.strokeStyle = '#3f8fd6'; g.stroke();
+    g.fillStyle = 'rgba(255,255,255,0.8)'; circ(g, dx - 1.2, y - 0.5, 1); g.fill();
+    g.globalAlpha = 1;
+  }
+}
+
 function drawCat(g, cat, x, y, size, st = {}) {
+  if (st.sick) st = Object.assign({}, st, { sad: true, mouth: 0, tilt: 0, squash: 0, noBed: true, blink: false });
   const t = st.t || 0;
   const sq = st.squash || 0;
   const k = size / 105;
@@ -454,6 +532,7 @@ function drawCat(g, cat, x, y, size, st = {}) {
   g.translate(x, y);
   g.scale(k, k);
   if (bed) drawOutfitLayer(g, { bed: outfit.bed }, 'bedBack', t);
+  if (st.sick) drawSickBedBack(g);
   if (st.tilt) g.rotate(st.tilt);
   g.scale(1 + sq * 0.08, 1 - sq * 0.08);
   g.lineJoin = 'round';
@@ -468,15 +547,17 @@ function drawCat(g, cat, x, y, size, st = {}) {
   g.save();
   if (fat > 0.01) g.scale(1 + fat * 0.5, 1 + fat * 0.06);
 
-  // chvost
-  const wag = Math.sin(t * 3.1 + cat.seed) * 7;
-  g.beginPath();
-  g.moveTo(24, -14);
-  g.bezierCurveTo(50, -12, 58, -34, 48 + wag, -58);
-  g.strokeStyle = OUT; g.lineWidth = 14; g.stroke();
-  g.strokeStyle = isSiam ? cat.pc : cat.pattern === 'rainbow' ? RAINBOW[5] : cat.body;
-  g.lineWidth = 8.5; g.stroke();
-  layer('back');
+  // chvost (chorá mačka ho má pod perinou)
+  if (!st.sick) {
+    const wag = Math.sin(t * 3.1 + cat.seed) * 7;
+    g.beginPath();
+    g.moveTo(24, -14);
+    g.bezierCurveTo(50, -12, 58, -34, 48 + wag, -58);
+    g.strokeStyle = OUT; g.lineWidth = 14; g.stroke();
+    g.strokeStyle = isSiam ? cat.pc : cat.pattern === 'rainbow' ? RAINBOW[5] : cat.body;
+    g.lineWidth = 8.5; g.stroke();
+    layer('back');
+  }
 
   // telo
   g.lineWidth = 3;
@@ -520,10 +601,12 @@ function drawCat(g, cat, x, y, size, st = {}) {
   layer('eyes');
   if (showBase) drawHeadAcc(g, cat, t);
   layer('head');
+  if (st.sick) drawSickFace(g, t);
   g.restore();
 
   if (showBase) drawNeckAcc(g, cat);
   layer('front');
+  if (st.sick) drawSickBlanket(g);
   g.restore();
 }
 

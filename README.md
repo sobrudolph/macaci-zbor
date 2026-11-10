@@ -10,6 +10,10 @@ Každú mačku ovládaš jedným palcom. Keď pochúťku chytíš, mačka zamňa
   každých 30 = náhodná vec z obchodu, každých 100 = mačička zadarmo podľa výberu (najviac 1× za deň).
   7 dní učenia za sebou = 2 500 bodov, prvé otvorenie dňa = denný bonus 500 bodov.
   IQ: Mačacia škola +1 až +3 za lekciu, Diktát +2 za vetu (−1 za chybu), Prvouka +1 až +2 za úlohu.
+- **Choroba (pre rodiča – v hre nie sú žiadne nápovedy):** mačička môže ochorieť najviac 1× za mesiac (nemusí vôbec),
+  vždy ostane aspoň jedna zdravá. Chorá leží 3 dni v posteli, nemôže spievať ani sa učiť. Liek z Lekárne (1 500)
+  skráti chorobu na polovicu. Opatrovateľka (iná vlastná mačička) jej musí 2× denne (do 14:00 a po 14:00) dať jesť
+  a piť zo špajze – za každý deň bez toho sa choroba predĺži o 1 deň. Keď nie sú 2 zdravé mačičky, Mačací zbor sa nedá hrať.
 - **Ekonomika:** na začiatku 35 000 bodov. Pesnička dá 300 – 750 (podľa obtiažnosti a presnosti),
   Mačacia škola 120 za odpoveď (+300 za 10/10), Diktát 500 za vetu bez chyby, Prvouka 120 za slovo (+200 za všetko správne).
   Jedlo stojí 200 – 1 100, oblečenie 1 500 – 12 000 (zlaté, strieborné a dúhové farby drahšie).
@@ -23,12 +27,12 @@ Každú mačku ovládaš jedným palcom. Keď pochúťku chytíš, mačka zamňa
   slová sa prstom presúvajú do rovnako veľkých medzier vo vetách alebo k obrázkom kostry a dopravných prostriedkov.
   Za každé správne slovo +1 IQ. Úlohy sú v `js/prvouka.js`.
 - **Hry:** Mačací zbor (rytmická hra), Diktát, Prvouka a **Mačacia škola** – 10 otázok (striedajú sa príklady do 20 a čítanie času z hodín), vždy 3 možnosti a len jedna správna. Za správne odpovede stúpa vybranej mačičke IQ od 0 do 150.
-- **Limit 6 minút:** po 6 minútach zapnutej aplikácie príde úloha: 4 príklady na sčítanie a odčítanie do 20
+- **Limit 10 minút:** po 10 minútach zapnutej aplikácie príde úloha: 4 príklady na sčítanie a odčítanie do 20
   a 1× ručičkové hodiny – všetkých 5 musí byť správne. (Pôvodne to bola jedna z dvoch úloh:)
   - 5 príkladov na sčítanie a odčítanie do 20,
   - 3× nastaviť ručičkové hodiny na zadaný čas (po 5 minútach, aj popoludňajšie časy ako 20:30).
 
-  Keď je všetko správne, pribudne ďalších 6 minút, inak príde nové kolo rovnakej úlohy.
+  Keď je všetko správne, pribudne ďalších 10 minút, inak príde nové kolo rovnakej úlohy.
   Pri učení (Diktát, Mačacia škola, Prvouka) sa čas neodpočítava a limit sa nezapne; po vypršaní limitu sa dá tlačidlom
   „Ísť sa učiť“ učiť ďalej, ostatné časti ostanú zamknuté, kým dieťa nesplní úlohu. Dĺžka limitu je `LIMIT_MIN` v `js/main.js`.
 
