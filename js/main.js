@@ -38,7 +38,8 @@
   const catById = id => CATS.find(c => c.id === id) || CATS[0];
   const chosenCats = () => [catById(store.catL), catById(store.catR)];
   const ownsCat = id => store.cats.includes(id);
-  function isSick(id) { return !!(store.sick && store.sick[id]); }
+  // nekúpená (zamknutá) mačka nemôže byť chorá ani hladná
+  function isSick(id) { return !!(store.sick && store.sick[id]) && store.cats.includes(id); }
   /** Tvar podľa rodu mačky: on (m), ona (f), ono (n) – napr. gx(cat, 'ochorel', 'ochorela', 'ochorelo'). */
   const gx = (cat, m, f, n) => (cat && cat.g === 'm' ? m : cat && cat.g === 'n' ? (n == null ? m : n) : f);
   const ownedCats = () => CATS.filter(c => ownsCat(c.id));
@@ -80,6 +81,8 @@
   const now0 = Date.now();
   for (const c of CATS) if (!store.hunger[c.id]) store.hunger[c.id] = { v: HUNGER_START, t: now0 };
 
+  /** Zamknutá mačka nemá hlad – vracia null (žiadny ukazovateľ). */
+  const hungerShown = id => (ownsCat(id) ? hungerOf(id) : null);
   function hungerOf(id) {
     const h = store.hunger[id];
     if (!h) return HUNGER_START;
@@ -131,7 +134,14 @@
   function syncGame() {
     const cats = chosenCats();
     game.setCats(cats);
-    game.looks = cats.map(c => ({ outfit: outfitOf(c.id), hunger: hungerOf(c.id), fat: fatOf(c.id), sick: isSick(c.id) }));
+    game.looks = cats.map(c => ({ outfit: outfitOf(c.id), hunger: hungerShown(c.id), fat: fatOf(c.id), sick: isSick(c.id) }));
+  }
+  // spievať môžu len kúpené mačky – ak by bola v zbore zamknutá, nahradí ju kúpená
+  for (const key of ['catL', 'catR']) {
+    if (ownsCat(store[key])) continue;
+    const other = key === 'catL' ? store.catR : store.catL;
+    const pick = ownedCats().find(c => c.id !== other);
+    if (pick) store[key] = pick.id;
   }
   syncGame();
   setInterval(syncGame, 60000);
@@ -338,7 +348,7 @@
       list.append(el);
     }
     // upozornenie na hladné mačky
-    const hungryCats = chosenCats().filter(c => hungerOf(c.id) < 25);
+    const hungryCats = chosenCats().filter(c => ownsCat(c.id) && hungerOf(c.id) < 25);
     const hungry = hungryCats.map(c => c.name);
     const hint = $('#songs-hint');
     hint.classList.toggle('hidden', !hungry.length);
@@ -385,7 +395,7 @@
     $$('.slot').forEach(el => {
       const cat = Number(el.dataset.slot) === 0 ? l : r;
       el.querySelector('.slot-name').textContent = cat.name;
-      el.querySelector('.hslot').innerHTML = hungerBar(hungerOf(cat.id));
+      el.querySelector('.hslot').innerHTML = ownsCat(cat.id) ? hungerBar(hungerOf(cat.id)) : '';
       paintCat(el.querySelector('canvas'), cat, 76, outfitOf(cat.id), 'full', { noBed: true });
     });
     $$('#cat-grid .cat-card').forEach(el => {
@@ -707,7 +717,7 @@
     }
     stage.chew = Math.max(0, stage.chew - dt);
     const chewing = stage.chew > 0;
-    const hungry = hungerOf(cat.id) < 25;
+    const hungry = ownsCat(cat.id) && hungerOf(cat.id) < 25;
     drawCat(g, cat, cx, by, size, {
       t: stage.t,
       outfit: outfitOf(cat.id),
@@ -2911,6 +2921,7 @@
   const singersReady = () => (!isSick(store.catL) && !isSick(store.catR)) || fixSingers();
 
   function makeSick(id) {
+    if (!ownsCat(id)) return; // ochorieť môže len kúpená mačka
     store.sick[id] = { start: Date.now(), base: SICK_DAYS * 24, med: false, ext: 0, carer: null, care: {}, evalDay: '', prompted: '', promptAt: 0 };
     store.sickMonth[id] = monthKey();
     fixSingers();
@@ -3083,14 +3094,14 @@
 
     // body na nákupy: bonus za najedené mačky, menej za hladné a tučné
     const cats = chosenCats();
-    const bonus = cats.reduce((s, c) => s + moodOf(hungerOf(c.id)).bonus, 0);
+    const bonus = cats.reduce((s, c) => s + (ownsCat(c.id) ? moodOf(hungerOf(c.id)).bonus : 0), 0);
     const fatPen = cats.reduce((s, c) => s + weightOf(fatOf(c.id)).bonus, 0);
     const earned = Math.max(0, Math.round((SONG_BASE + SONG_PER_DIFF * current.difficulty) * r.acc * (1 + bonus + fatPen)));
     store.coins += earned;
     // chudnutie: podľa toho, koľko sa mačka v pesničke nachodila
     const slim = [];
     cats.forEach((c, i) => {
-      setHunger(c.id, hungerOf(c.id) - SONG_COST);
+      if (ownsCat(c.id)) setHunger(c.id, hungerOf(c.id) - SONG_COST);
       const before = fatOf(c.id);
       if (before <= 0) return;
       const loss = Math.min(FAT_SONG_MAX, ((r.moved && r.moved[i]) || 0) * FAT_PER_MOVE);
